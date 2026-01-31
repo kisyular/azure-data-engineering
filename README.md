@@ -3198,4 +3198,464 @@ df.write \
 df.coalesce(1).write.parquet("/path")     # Single file (small data)
 df.repartition(10).write.parquet("/path") # 10 files
 ```
+
+---
+
+## 13. Metadata-Driven Pipelines with Jinja2
+
+### 13.1 What are Metadata-Driven Pipelines?
+
+**Simple Explanation:** Instead of writing separate code for each table or transformation, you write ONE template and use metadata (configuration) to generate the specific code. It's like having a cake recipe template where you just change the flavor ingredients.
+
+```
+┌────────────────────────────────────────────────────────────────────────────────┐
+│                    TRADITIONAL vs METADATA-DRIVEN                               │
+├────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                 │
+│   TRADITIONAL APPROACH (50 tables = 50 notebooks):                             │
+│   ────────────────────────────────────────────────                             │
+│   ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐               │
+│   │ customers.py    │  │ products.py     │  │ orders.py       │               │
+│   │ ─────────────   │  │ ─────────────   │  │ ─────────────   │               │
+│   │ df = read()     │  │ df = read()     │  │ df = read()     │               │
+│   │ df = transform()│  │ df = transform()│  │ df = transform()│               │
+│   │ df.write()      │  │ df.write()      │  │ df.write()      │               │
+│   └─────────────────┘  └─────────────────┘  └─────────────────┘               │
+│   Problem: Duplicate code, hard to maintain                                    │
+│                                                                                 │
+│   METADATA-DRIVEN APPROACH (1 template + config):                              │
+│   ────────────────────────────────────────────────                             │
+│   ┌─────────────────┐     ┌─────────────────────────────────┐                 │
+│   │ Template.py     │ +   │ metadata.json                   │                 │
+│   │ ─────────────   │     │ ──────────────                  │                 │
+│   │ {source_table}  │     │ [{table: "customers", ...},     │                 │
+│   │ {transforms}    │     │  {table: "products", ...},      │                 │
+│   │ {target_table}  │     │  {table: "orders", ...}]        │                 │
+│   └─────────────────┘     └─────────────────────────────────┘                 │
+│   Benefit: Single source of truth, easy updates                                │
+│                                                                                 │
+└────────────────────────────────────────────────────────────────────────────────┘
+```
+
+### 13.2 Introduction to Jinja2
+
+**What is Jinja2?** A templating engine for Python that lets you create dynamic text/code using variables and logic.
+
+```python
+# Install Jinja2 (in Databricks, it's pre-installed)
+# pip install Jinja2
+
+from jinja2 import Template
+
+# Basic template example
+template = Template("Hello, {{ name }}!")
+result = template.render(name="World")
+print(result)  # Output: Hello, World!
+```
+
+**Jinja2 Syntax Cheat Sheet:**
+
+```
+┌────────────────────────────────────────────────────────────────────────────────┐
+│                    JINJA2 SYNTAX                                                │
+├────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                 │
+│   VARIABLES:                                                                    │
+│   ──────────                                                                    │
+│   {{ variable }}              → Output variable value                          │
+│   {{ user.name }}             → Access attribute                               │
+│   {{ items[0] }}              → Access list item                               │
+│                                                                                 │
+│   CONTROL STRUCTURES:                                                           │
+│   ───────────────────                                                           │
+│   {% for item in items %}     → Loop                                           │
+│   {% endfor %}                                                                  │
+│                                                                                 │
+│   {% if condition %}          → Conditional                                    │
+│   {% elif other %}                                                              │
+│   {% else %}                                                                    │
+│   {% endif %}                                                                   │
+│                                                                                 │
+│   FILTERS:                                                                      │
+│   ────────                                                                      │
+│   {{ name | upper }}          → Uppercase                                      │
+│   {{ name | lower }}          → Lowercase                                      │
+│   {{ items | join(', ') }}    → Join list                                      │
+│   {{ value | default('N/A') }}→ Default value                                  │
+│                                                                                 │
+│   WHITESPACE CONTROL:                                                           │
+│   ───────────────────                                                           │
+│   {%- ... -%}                 → Trim whitespace                                │
+│                                                                                 │
+└────────────────────────────────────────────────────────────────────────────────┘
+```
+
+### 13.3 Creating a Metadata Configuration
+
+```python
+# metadata_config.py
+# ─────────────────────────────────────────────────────────────────────────────
+
+table_configs = [
+    {
+        "source_schema": "bronze",
+        "source_table": "raw_customers",
+        "target_schema": "silver",
+        "target_table": "customers",
+        "primary_key": "customer_id",
+        "partition_columns": ["ingestion_date"],
+        "transformations": [
+            {"column": "email", "transform": "lower"},
+            {"column": "first_name", "transform": "trim"},
+            {"column": "last_name", "transform": "trim"},
+            {"column": "full_name", "transform": "concat", "source_columns": ["first_name", "last_name"]}
+        ],
+        "filters": [
+            {"column": "email", "condition": "isNotNull"}
+        ]
+    },
+    {
+        "source_schema": "bronze",
+        "source_table": "raw_products",
+        "target_schema": "silver",
+        "target_table": "products",
+        "primary_key": "product_id",
+        "partition_columns": ["category"],
+        "transformations": [
+            {"column": "product_name", "transform": "trim"},
+            {"column": "price", "transform": "cast", "data_type": "decimal(10,2)"}
+        ],
+        "filters": [
+            {"column": "price", "condition": "> 0"}
+        ]
+    }
+]
+```
+
+### 13.4 Building a Jinja2 Template for PySpark
+
+```python
+# transformation_template.py
+# ─────────────────────────────────────────────────────────────────────────────
+
+from jinja2 import Template
+
+pyspark_template = """
+# Auto-generated transformation for {{ config.target_table }}
+# Generated at: {{ generation_time }}
+# ─────────────────────────────────────────────────────────────────────────────
+
+from pyspark.sql.functions import *
+from delta.tables import DeltaTable
+
+# Read source data
+df = spark.table("{{ catalog }}.{{ config.source_schema }}.{{ config.source_table }}")
+
+# Apply transformations
+df_transformed = df
+{%- for transform in config.transformations %}
+
+# Transform: {{ transform.column }}
+{%- if transform.transform == 'lower' %}
+df_transformed = df_transformed.withColumn("{{ transform.column }}", lower(col("{{ transform.column }}")))
+{%- elif transform.transform == 'upper' %}
+df_transformed = df_transformed.withColumn("{{ transform.column }}", upper(col("{{ transform.column }}")))
+{%- elif transform.transform == 'trim' %}
+df_transformed = df_transformed.withColumn("{{ transform.column }}", trim(col("{{ transform.column }}")))
+{%- elif transform.transform == 'cast' %}
+df_transformed = df_transformed.withColumn("{{ transform.column }}", col("{{ transform.column }}").cast("{{ transform.data_type }}"))
+{%- elif transform.transform == 'concat' %}
+df_transformed = df_transformed.withColumn("{{ transform.column }}", concat_ws(" ", {% for src_col in transform.source_columns %}col("{{ src_col }}"){{ ", " if not loop.last else "" }}{% endfor %}))
+{%- endif %}
+{%- endfor %}
+
+# Apply filters
+{%- for filter in config.filters %}
+{%- if filter.condition == 'isNotNull' %}
+df_transformed = df_transformed.filter(col("{{ filter.column }}").isNotNull())
+{%- else %}
+df_transformed = df_transformed.filter(col("{{ filter.column }}") {{ filter.condition }})
+{%- endif %}
+{%- endfor %}
+
+# Add audit columns
+df_final = df_transformed \\
+    .withColumn("processed_timestamp", current_timestamp()) \\
+    .withColumn("source_system", lit("{{ config.source_table }}"))
+
+# Write to target (MERGE for idempotency)
+target_path = "{{ catalog }}.{{ config.target_schema }}.{{ config.target_table }}"
+
+if spark.catalog.tableExists(target_path):
+    delta_table = DeltaTable.forName(spark, target_path)
+    delta_table.alias("target").merge(
+        df_final.alias("source"),
+        "target.{{ config.primary_key }} = source.{{ config.primary_key }}"
+    ).whenMatchedUpdateAll() \\
+     .whenNotMatchedInsertAll() \\
+     .execute()
+else:
+    df_final.write \\
+        .format("delta") \\
+        {%- if config.partition_columns %}
+        .partitionBy({{ config.partition_columns | map('tojson') | join(', ') }}) \\
+        {%- endif %}
+        .saveAsTable(target_path)
+
+print(f"Successfully processed {{ config.target_table }}")
+"""
+
+# Generate code for each table
+template = Template(pyspark_template)
+```
+
+### 13.5 Generating and Executing Pipelines
+
+```python
+# pipeline_generator.py
+# ─────────────────────────────────────────────────────────────────────────────
+
+from jinja2 import Template
+from datetime import datetime
+
+class MetadataPipelineGenerator:
+    def __init__(self, catalog: str, template_str: str):
+        self.catalog = catalog
+        self.template = Template(template_str)
+
+    def generate_code(self, config: dict) -> str:
+        """Generate PySpark code from metadata config"""
+        return self.template.render(
+            config=config,
+            catalog=self.catalog,
+            generation_time=datetime.now().isoformat()
+        )
+
+    def execute_pipeline(self, config: dict):
+        """Generate and execute the pipeline"""
+        code = self.generate_code(config)
+
+        # Option 1: Execute directly
+        exec(code)
+
+        # Option 2: Save as notebook and run
+        # self.save_as_notebook(config['target_table'], code)
+
+    def run_all(self, configs: list):
+        """Run pipelines for all configurations"""
+        results = []
+        for config in configs:
+            try:
+                self.execute_pipeline(config)
+                results.append({"table": config['target_table'], "status": "success"})
+            except Exception as e:
+                results.append({"table": config['target_table'], "status": "failed", "error": str(e)})
+        return results
+
+# Usage
+generator = MetadataPipelineGenerator(
+    catalog="dev_catalog",
+    template_str=pyspark_template
+)
+
+# Run all pipelines
+results = generator.run_all(table_configs)
+for r in results:
+    print(r)
+```
+
+### 13.6 Advanced: SQL Template Generation
+
+```python
+# sql_template.py
+# ─────────────────────────────────────────────────────────────────────────────
+
+sql_view_template = """
+-- Auto-generated view for {{ config.view_name }}
+-- Source: {{ config.source_table }}
+CREATE OR REPLACE VIEW {{ catalog }}.{{ config.target_schema }}.{{ config.view_name }} AS
+SELECT
+{%- for column in config.columns %}
+    {%- if column.transformation %}
+    {{ column.transformation }}({{ column.source_column }}) AS {{ column.alias }}{{ "," if not loop.last else "" }}
+    {%- else %}
+    {{ column.source_column }}{{ " AS " + column.alias if column.alias else "" }}{{ "," if not loop.last else "" }}
+    {%- endif %}
+{%- endfor %}
+FROM {{ catalog }}.{{ config.source_schema }}.{{ config.source_table }}
+{%- if config.where_clause %}
+WHERE {{ config.where_clause }}
+{%- endif %}
+{%- if config.group_by %}
+GROUP BY {{ config.group_by | join(', ') }}
+{%- endif %}
+;
+"""
+
+# Example config for SQL generation
+view_configs = [
+    {
+        "source_schema": "silver",
+        "source_table": "customers",
+        "target_schema": "gold",
+        "view_name": "v_customer_summary",
+        "columns": [
+            {"source_column": "customer_id", "alias": None, "transformation": None},
+            {"source_column": "full_name", "alias": "customer_name", "transformation": "UPPER"},
+            {"source_column": "email", "alias": None, "transformation": "LOWER"},
+            {"source_column": "1", "alias": "customer_count", "transformation": "COUNT"}
+        ],
+        "where_clause": "email IS NOT NULL",
+        "group_by": ["customer_id", "full_name", "email"]
+    }
+]
+
+# Generate SQL
+template = Template(sql_view_template)
+for config in view_configs:
+    sql = template.render(config=config, catalog="prod_catalog")
+    print(sql)
+    spark.sql(sql)
+```
+
+### 13.7 Configuration Management Patterns
+
+```python
+# config_manager.py
+# ─────────────────────────────────────────────────────────────────────────────
+
+import json
+from typing import List, Dict
+
+class ConfigManager:
+    """Manage pipeline configurations from various sources"""
+
+    @staticmethod
+    def from_json_file(path: str) -> List[Dict]:
+        """Load configs from JSON file"""
+        with open(path, 'r') as f:
+            return json.load(f)
+
+    @staticmethod
+    def from_delta_table(table_name: str) -> List[Dict]:
+        """Load configs from Delta table"""
+        df = spark.table(table_name)
+        return [row.asDict() for row in df.collect()]
+
+    @staticmethod
+    def from_yaml_file(path: str) -> List[Dict]:
+        """Load configs from YAML file"""
+        import yaml
+        with open(path, 'r') as f:
+            return yaml.safe_load(f)
+
+    @staticmethod
+    def validate_config(config: Dict) -> bool:
+        """Validate required fields exist"""
+        required_fields = ['source_table', 'target_table', 'primary_key']
+        return all(field in config for field in required_fields)
+
+# Store configs in Delta table for production
+config_df = spark.createDataFrame([
+    {
+        "pipeline_id": "pl_customers",
+        "source_table": "bronze.raw_customers",
+        "target_table": "silver.customers",
+        "primary_key": "customer_id",
+        "config_json": json.dumps({"transformations": [...]}),
+        "is_active": True,
+        "created_at": "2024-01-15"
+    }
+])
+
+config_df.write.format("delta").saveAsTable("config.pipeline_metadata")
+```
+
+### 13.8 Complete Metadata-Driven Pipeline
+
+```python
+# complete_pipeline.py
+# ─────────────────────────────────────────────────────────────────────────────
+
+from jinja2 import Environment, BaseLoader
+from datetime import datetime
+import json
+
+class MetadataDrivenPipeline:
+    """Complete metadata-driven pipeline framework"""
+
+    def __init__(self, catalog: str):
+        self.catalog = catalog
+        self.env = Environment(loader=BaseLoader())
+
+    def load_template(self, template_path: str) -> str:
+        """Load template from DBFS or storage"""
+        return spark.read.text(template_path).collect()[0][0]
+
+    def load_configs(self, config_table: str) -> list:
+        """Load active configurations from Delta table"""
+        df = spark.table(config_table).filter("is_active = true")
+        configs = []
+        for row in df.collect():
+            config = row.asDict()
+            config['transformations'] = json.loads(config.get('config_json', '{}'))
+            configs.append(config)
+        return configs
+
+    def process_table(self, config: dict, template_str: str) -> dict:
+        """Process a single table based on config"""
+        start_time = datetime.now()
+
+        try:
+            template = self.env.from_string(template_str)
+            code = template.render(
+                config=config,
+                catalog=self.catalog,
+                timestamp=start_time.isoformat()
+            )
+
+            # Execute generated code
+            exec(code)
+
+            return {
+                "table": config['target_table'],
+                "status": "success",
+                "duration_seconds": (datetime.now() - start_time).total_seconds()
+            }
+
+        except Exception as e:
+            return {
+                "table": config['target_table'],
+                "status": "failed",
+                "error": str(e),
+                "duration_seconds": (datetime.now() - start_time).total_seconds()
+            }
+
+    def run_pipeline(self, config_table: str, template_path: str):
+        """Execute full metadata-driven pipeline"""
+        # Load template and configs
+        template_str = self.load_template(template_path)
+        configs = self.load_configs(config_table)
+
+        print(f"Processing {len(configs)} tables...")
+
+        # Process each table
+        results = []
+        for config in configs:
+            result = self.process_table(config, template_str)
+            results.append(result)
+            print(f"  {result['table']}: {result['status']}")
+
+        # Log results
+        results_df = spark.createDataFrame(results)
+        results_df.write.mode("append").saveAsTable("audit.pipeline_runs")
+
+        return results
+
+# Usage
+pipeline = MetadataDrivenPipeline(catalog="prod_catalog")
+results = pipeline.run_pipeline(
+    config_table="config.pipeline_metadata",
+    template_path="/dbfs/templates/transform_template.py"
+)
 ```
