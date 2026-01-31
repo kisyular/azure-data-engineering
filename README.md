@@ -3659,3 +3659,540 @@ results = pipeline.run_pipeline(
     template_path="/dbfs/templates/transform_template.py"
 )
 ```
+
+---
+
+## 14. Star Schema and Slowly Changing Dimensions (SCD)
+
+### 14.1 What is Dimensional Data Modeling?
+
+**Simple Explanation:** Dimensional modeling organizes data for easy analysis. Imagine organizing a library: instead of having one giant book with everything, you have a catalog (facts) that references separate sections (dimensions) for authors, genres, and publishers.
+
+```
+┌────────────────────────────────────────────────────────────────────────────────┐
+│                    DIMENSIONAL MODELING CONCEPTS                                │
+├────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                 │
+│   FACT TABLE (Measures/Events):                                                │
+│   ─────────────────────────────                                                │
+│   • Contains measurable business metrics                                        │
+│   • Records business events/transactions                                        │
+│   • Has foreign keys to dimension tables                                        │
+│   • Examples: sales, orders, clicks, transactions                              │
+│                                                                                 │
+│   DIMENSION TABLE (Context/Descriptors):                                        │
+│   ──────────────────────────────────────                                        │
+│   • Contains descriptive attributes                                             │
+│   • Provides context to fact tables                                             │
+│   • Usually smaller than fact tables                                            │
+│   • Examples: customers, products, dates, locations                            │
+│                                                                                 │
+└────────────────────────────────────────────────────────────────────────────────┘
+```
+
+### 14.2 Star Schema Design
+
+```
+┌────────────────────────────────────────────────────────────────────────────────┐
+│                    STAR SCHEMA EXAMPLE                                          │
+├────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                 │
+│                           ┌─────────────────┐                                  │
+│                           │  dim_customer   │                                  │
+│                           │  ─────────────  │                                  │
+│                           │  customer_key   │◄───┐                             │
+│                           │  customer_id    │    │                             │
+│                           │  customer_name  │    │                             │
+│                           │  email          │    │                             │
+│                           │  city           │    │                             │
+│                           └─────────────────┘    │                             │
+│                                                  │                              │
+│   ┌─────────────────┐    ┌─────────────────┐    │    ┌─────────────────┐      │
+│   │   dim_product   │    │   FACT_SALES    │    │    │    dim_date     │      │
+│   │   ───────────   │    │   ───────────   │    │    │   ──────────    │      │
+│   │   product_key   │◄───│   product_key   │    │    │   date_key      │◄──┐  │
+│   │   product_id    │    │   customer_key  │────┘    │   full_date     │   │  │
+│   │   product_name  │    │   date_key      │─────────│   year          │   │  │
+│   │   category      │    │   store_key     │────┐    │   quarter       │   │  │
+│   │   brand         │    │   ─────────────  │    │    │   month         │   │  │
+│   └─────────────────┘    │   quantity      │    │    │   day_of_week   │   │  │
+│                          │   unit_price    │    │    └─────────────────┘   │  │
+│                          │   total_amount  │    │                          │  │
+│                          │   discount      │    │    ┌─────────────────┐   │  │
+│                          └─────────────────┘    │    │   dim_store     │   │  │
+│                                                 │    │   ──────────    │   │  │
+│                                                 └───▶│   store_key     │   │  │
+│                                                      │   store_name    │   │  │
+│                                                      │   region        │   │  │
+│                                                      └─────────────────┘   │  │
+│                                                                             │  │
+│   The STAR shape: Fact table in center, dimensions around it like points   │  │
+│                                                                             │  │
+└────────────────────────────────────────────────────────────────────────────────┘
+```
+
+### 14.3 Creating Dimension Tables
+
+```python
+# dim_date.py - Date Dimension
+# ─────────────────────────────────────────────────────────────────────────────
+
+from pyspark.sql.functions import *
+from pyspark.sql.types import *
+from datetime import datetime, timedelta
+
+def create_date_dimension(start_date: str, end_date: str):
+    """Create a comprehensive date dimension table"""
+
+    # Generate date range
+    start = datetime.strptime(start_date, "%Y-%m-%d")
+    end = datetime.strptime(end_date, "%Y-%m-%d")
+    dates = [(start + timedelta(days=x),) for x in range((end - start).days + 1)]
+
+    df = spark.createDataFrame(dates, ["full_date"])
+
+    dim_date = df.select(
+        # Surrogate key
+        date_format(col("full_date"), "yyyyMMdd").cast("int").alias("date_key"),
+
+        # Date values
+        col("full_date"),
+        year(col("full_date")).alias("year"),
+        quarter(col("full_date")).alias("quarter"),
+        month(col("full_date")).alias("month"),
+        weekofyear(col("full_date")).alias("week_of_year"),
+        dayofmonth(col("full_date")).alias("day_of_month"),
+        dayofweek(col("full_date")).alias("day_of_week"),
+        dayofyear(col("full_date")).alias("day_of_year"),
+
+        # Formatted values
+        date_format(col("full_date"), "MMMM").alias("month_name"),
+        date_format(col("full_date"), "MMM").alias("month_short"),
+        date_format(col("full_date"), "EEEE").alias("day_name"),
+        date_format(col("full_date"), "EEE").alias("day_short"),
+
+        # Fiscal year (assuming July start)
+        when(month(col("full_date")) >= 7, year(col("full_date")) + 1)
+            .otherwise(year(col("full_date"))).alias("fiscal_year"),
+
+        # Flags
+        when(dayofweek(col("full_date")).isin([1, 7]), True)
+            .otherwise(False).alias("is_weekend"),
+
+        # Period indicators
+        concat(lit("Q"), quarter(col("full_date"))).alias("quarter_name"),
+        date_format(col("full_date"), "yyyy-MM").alias("year_month")
+    )
+
+    return dim_date
+
+# Create and save
+dim_date = create_date_dimension("2020-01-01", "2030-12-31")
+dim_date.write.format("delta").mode("overwrite").saveAsTable("gold.dim_date")
+```
+
+```python
+# dim_customer.py - Customer Dimension with SCD Type 2
+# ─────────────────────────────────────────────────────────────────────────────
+
+from pyspark.sql.functions import *
+from pyspark.sql.window import Window
+
+def create_customer_dimension(source_df):
+    """Transform source customer data into dimension"""
+
+    dim_customer = source_df.select(
+        # Generate surrogate key
+        monotonically_increasing_id().alias("customer_key"),
+
+        # Natural key
+        col("customer_id"),
+
+        # Attributes
+        col("first_name"),
+        col("last_name"),
+        concat_ws(" ", col("first_name"), col("last_name")).alias("full_name"),
+        lower(col("email")).alias("email"),
+        col("phone"),
+        col("address"),
+        col("city"),
+        col("state"),
+        col("country"),
+
+        # SCD Type 2 columns
+        current_date().alias("effective_start_date"),
+        lit("9999-12-31").cast("date").alias("effective_end_date"),
+        lit(True).alias("is_current")
+    )
+
+    return dim_customer
+```
+
+### 14.4 Understanding Slowly Changing Dimensions
+
+```
+┌────────────────────────────────────────────────────────────────────────────────┐
+│                    SCD TYPES EXPLAINED                                          │
+├────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                 │
+│   SCD TYPE 0 (Retain Original):                                                │
+│   ─────────────────────────────                                                │
+│   Never update dimension attributes. Keep original values forever.             │
+│   Use case: Birth date, original signup date                                   │
+│                                                                                 │
+│   SCD TYPE 1 (Overwrite):                                                      │
+│   ───────────────────────                                                       │
+│   Simply overwrite old values with new values. No history preserved.           │
+│   Use case: Fixing typos, non-critical attributes                              │
+│                                                                                 │
+│   SCD TYPE 2 (Add New Row):                                                    │
+│   ─────────────────────────                                                     │
+│   Create new row for each change. Preserves full history.                      │
+│   Use case: Address changes, status changes, anything needing history          │
+│                                                                                 │
+│   SCD TYPE 3 (Add New Column):                                                 │
+│   ────────────────────────────                                                  │
+│   Add column to store previous value. Limited history (usually 1 prior).       │
+│   Use case: Need current and previous value only                               │
+│                                                                                 │
+│   SCD TYPE 4 (History Table):                                                  │
+│   ────────────────────────────                                                  │
+│   Separate table for history. Main table always current.                       │
+│   Use case: Frequent changes, query performance critical                       │
+│                                                                                 │
+│   SCD TYPE 6 (Hybrid 1+2+3):                                                   │
+│   ──────────────────────────                                                    │
+│   Combines types 1, 2, and 3 for maximum flexibility.                          │
+│   Use case: Need history AND quick access to current values                    │
+│                                                                                 │
+└────────────────────────────────────────────────────────────────────────────────┘
+```
+
+### 14.5 SCD Type 1 Implementation
+
+```python
+# scd_type1.py - Overwrite changes
+# ─────────────────────────────────────────────────────────────────────────────
+
+from delta.tables import DeltaTable
+
+def scd_type1_merge(source_df, target_table: str, key_columns: list, update_columns: list):
+    """
+    SCD Type 1: Overwrite old values with new values
+    """
+
+    # Build merge condition
+    merge_condition = " AND ".join([f"target.{col} = source.{col}" for col in key_columns])
+
+    # Get target Delta table
+    delta_table = DeltaTable.forName(spark, target_table)
+
+    # Perform merge
+    delta_table.alias("target").merge(
+        source_df.alias("source"),
+        merge_condition
+    ).whenMatchedUpdate(
+        set={col: f"source.{col}" for col in update_columns}
+    ).whenNotMatchedInsertAll().execute()
+
+# Example usage
+source_df = spark.table("bronze.customers")
+scd_type1_merge(
+    source_df=source_df,
+    target_table="gold.dim_customer",
+    key_columns=["customer_id"],
+    update_columns=["email", "phone", "address", "city"]
+)
+```
+
+### 14.6 SCD Type 2 Implementation
+
+```python
+# scd_type2.py - Full History Tracking
+# ─────────────────────────────────────────────────────────────────────────────
+
+from pyspark.sql.functions import *
+from delta.tables import DeltaTable
+
+def scd_type2_merge(
+    source_df,
+    target_table: str,
+    key_column: str,
+    tracked_columns: list,
+    surrogate_key: str = "sk"
+):
+    """
+    SCD Type 2: Create new row for each change, preserve history
+
+    Required target columns:
+    - surrogate_key (generated)
+    - effective_start_date
+    - effective_end_date
+    - is_current
+    """
+
+    # Add processing columns to source
+    source_with_hash = source_df.withColumn(
+        "row_hash",
+        md5(concat_ws("||", *[col(c) for c in tracked_columns]))
+    ).withColumn(
+        "effective_start_date",
+        current_date()
+    ).withColumn(
+        "effective_end_date",
+        lit("9999-12-31").cast("date")
+    ).withColumn(
+        "is_current",
+        lit(True)
+    )
+
+    # Get current records from target
+    target_df = spark.table(target_table).filter("is_current = true")
+
+    # Add hash to target for comparison
+    target_with_hash = target_df.withColumn(
+        "row_hash",
+        md5(concat_ws("||", *[col(c) for c in tracked_columns]))
+    )
+
+    # Find changed records
+    changed_records = source_with_hash.alias("s").join(
+        target_with_hash.alias("t"),
+        col(f"s.{key_column}") == col(f"t.{key_column}"),
+        "left"
+    ).filter(
+        (col("t.row_hash").isNull()) |  # New records
+        (col("s.row_hash") != col("t.row_hash"))  # Changed records
+    ).select("s.*")
+
+    # Records to expire (set is_current = false)
+    records_to_expire = target_with_hash.alias("t").join(
+        source_with_hash.alias("s"),
+        col(f"t.{key_column}") == col(f"s.{key_column}"),
+        "inner"
+    ).filter(
+        col("t.row_hash") != col("s.row_hash")
+    ).select(
+        col(f"t.{surrogate_key}"),
+        col(f"t.{key_column}"),
+        current_date().alias("effective_end_date")
+    )
+
+    # Get Delta table
+    delta_table = DeltaTable.forName(spark, target_table)
+
+    # Expire old records
+    if records_to_expire.count() > 0:
+        delta_table.alias("target").merge(
+            records_to_expire.alias("expire"),
+            f"target.{surrogate_key} = expire.{surrogate_key}"
+        ).whenMatchedUpdate(
+            set={
+                "is_current": lit(False),
+                "effective_end_date": col("expire.effective_end_date")
+            }
+        ).execute()
+
+    # Insert new/changed records
+    if changed_records.count() > 0:
+        # Generate new surrogate keys
+        max_sk = spark.table(target_table).agg(max(surrogate_key)).collect()[0][0] or 0
+
+        new_records = changed_records.withColumn(
+            surrogate_key,
+            monotonically_increasing_id() + max_sk + 1
+        ).drop("row_hash")
+
+        new_records.write.format("delta").mode("append").saveAsTable(target_table)
+
+    return {
+        "expired_count": records_to_expire.count(),
+        "new_count": changed_records.count()
+    }
+
+# Usage
+result = scd_type2_merge(
+    source_df=spark.table("silver.customers"),
+    target_table="gold.dim_customer",
+    key_column="customer_id",
+    tracked_columns=["email", "phone", "address", "city", "state"],
+    surrogate_key="customer_key"
+)
+print(f"Expired: {result['expired_count']}, New: {result['new_count']}")
+```
+
+### 14.7 Creating Fact Tables
+
+```python
+# fact_sales.py - Sales Fact Table
+# ─────────────────────────────────────────────────────────────────────────────
+
+from pyspark.sql.functions import *
+
+def create_fact_sales(sales_df, dim_customer, dim_product, dim_date, dim_store):
+    """
+    Create fact table by joining source data with dimension surrogate keys
+    """
+
+    fact_sales = (
+        sales_df.alias("s")
+
+        # Join customer dimension (get surrogate key)
+        .join(
+            dim_customer.filter("is_current = true").alias("c"),
+            col("s.customer_id") == col("c.customer_id"),
+            "left"
+        )
+
+        # Join product dimension
+        .join(
+            dim_product.filter("is_current = true").alias("p"),
+            col("s.product_id") == col("p.product_id"),
+            "left"
+        )
+
+        # Join date dimension
+        .join(
+            dim_date.alias("d"),
+            to_date(col("s.order_date")) == col("d.full_date"),
+            "left"
+        )
+
+        # Join store dimension
+        .join(
+            dim_store.filter("is_current = true").alias("st"),
+            col("s.store_id") == col("st.store_id"),
+            "left"
+        )
+
+        # Select fact columns with surrogate keys
+        .select(
+            # Surrogate keys (foreign keys to dimensions)
+            col("c.customer_key"),
+            col("p.product_key"),
+            col("d.date_key"),
+            col("st.store_key"),
+
+            # Degenerate dimension (transaction ID)
+            col("s.order_id"),
+
+            # Measures
+            col("s.quantity"),
+            col("s.unit_price"),
+            (col("s.quantity") * col("s.unit_price")).alias("gross_amount"),
+            col("s.discount_amount"),
+            (col("s.quantity") * col("s.unit_price") - col("s.discount_amount")).alias("net_amount"),
+
+            # Audit columns
+            current_timestamp().alias("etl_timestamp")
+        )
+    )
+
+    return fact_sales
+
+# Create fact table
+fact = create_fact_sales(
+    sales_df=spark.table("silver.sales_orders"),
+    dim_customer=spark.table("gold.dim_customer"),
+    dim_product=spark.table("gold.dim_product"),
+    dim_date=spark.table("gold.dim_date"),
+    dim_store=spark.table("gold.dim_store")
+)
+
+fact.write.format("delta") \
+    .mode("overwrite") \
+    .partitionBy("date_key") \
+    .saveAsTable("gold.fact_sales")
+```
+
+### 14.8 Querying the Star Schema
+
+```sql
+-- Example analytics queries on star schema
+-- ─────────────────────────────────────────────────────────────────────────────
+
+-- Total sales by year and quarter
+SELECT
+    d.year,
+    d.quarter_name,
+    SUM(f.net_amount) as total_sales,
+    COUNT(DISTINCT f.order_id) as order_count,
+    COUNT(DISTINCT f.customer_key) as unique_customers
+FROM gold.fact_sales f
+JOIN gold.dim_date d ON f.date_key = d.date_key
+GROUP BY d.year, d.quarter_name
+ORDER BY d.year, d.quarter_name;
+
+-- Top 10 customers by revenue
+SELECT
+    c.full_name,
+    c.city,
+    SUM(f.net_amount) as total_revenue,
+    COUNT(f.order_id) as order_count,
+    AVG(f.net_amount) as avg_order_value
+FROM gold.fact_sales f
+JOIN gold.dim_customer c ON f.customer_key = c.customer_key
+WHERE c.is_current = true
+GROUP BY c.full_name, c.city
+ORDER BY total_revenue DESC
+LIMIT 10;
+
+-- Product performance by category
+SELECT
+    p.category,
+    p.brand,
+    SUM(f.quantity) as units_sold,
+    SUM(f.net_amount) as revenue,
+    SUM(f.discount_amount) as total_discounts
+FROM gold.fact_sales f
+JOIN gold.dim_product p ON f.product_key = p.product_key
+WHERE p.is_current = true
+GROUP BY p.category, p.brand
+ORDER BY revenue DESC;
+
+-- Historical customer analysis (using SCD Type 2)
+SELECT
+    c.customer_id,
+    c.city,
+    c.effective_start_date,
+    c.effective_end_date,
+    SUM(f.net_amount) as revenue_during_period
+FROM gold.fact_sales f
+JOIN gold.dim_customer c ON f.customer_key = c.customer_key
+JOIN gold.dim_date d ON f.date_key = d.date_key
+WHERE d.full_date BETWEEN c.effective_start_date AND c.effective_end_date
+GROUP BY c.customer_id, c.city, c.effective_start_date, c.effective_end_date
+ORDER BY c.customer_id, c.effective_start_date;
+```
+
+```
+┌────────────────────────────────────────────────────────────────────────────────┐
+│                    STAR SCHEMA BEST PRACTICES                                   │
+├────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                 │
+│  1. USE SURROGATE KEYS                                                          │
+│     └── Never use natural keys as primary keys in dimensions                   │
+│     └── Surrogate keys are stable even when business keys change              │
+│                                                                                 │
+│  2. ALWAYS CREATE DIM_DATE                                                      │
+│     └── Pre-build date dimension with all needed attributes                    │
+│     └── Avoid date calculations at query time                                  │
+│                                                                                 │
+│  3. HANDLE UNKNOWN MEMBERS                                                      │
+│     └── Create "-1" or "0" key for missing dimension values                    │
+│     └── Never have NULL foreign keys in fact tables                            │
+│                                                                                 │
+│  4. GRAIN CONSISTENCY                                                           │
+│     └── Define the grain (level of detail) clearly                             │
+│     └── All facts in a fact table should be at the same grain                  │
+│                                                                                 │
+│  5. PREFER ADDITIVE MEASURES                                                    │
+│     └── Store raw values, calculate percentages at query time                  │
+│     └── Makes aggregation simpler and more flexible                            │
+│                                                                                 │
+│  6. PARTITION FACT TABLES                                                       │
+│     └── Partition by date_key for large fact tables                            │
+│     └── Improves query performance significantly                               │
+│                                                                                 │
+└────────────────────────────────────────────────────────────────────────────────┘
+```
