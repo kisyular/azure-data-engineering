@@ -4196,3 +4196,502 @@ ORDER BY c.customer_id, c.effective_start_date;
 │                                                                                 │
 └────────────────────────────────────────────────────────────────────────────────┘
 ```
+
+---
+
+## 15. Databricks Delta Live Tables (DLT)
+
+### 15.1 What are Delta Live Tables?
+
+**Simple Explanation:** Delta Live Tables (DLT) is like hiring an autopilot for your data pipelines. Instead of writing code to handle every detail (errors, retries, dependencies), you just describe WHAT you want, and DLT figures out HOW to do it reliably.
+
+```
+┌────────────────────────────────────────────────────────────────────────────────┐
+│                    TRADITIONAL PIPELINES vs DLT                                 │
+├────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                 │
+│   TRADITIONAL (Imperative - HOW to do it):                                     │
+│   ─────────────────────────────────────────                                    │
+│   • Write code to read data                                                     │
+│   • Handle errors manually                                                      │
+│   • Manage dependencies yourself                                                │
+│   • Write retry logic                                                           │
+│   • Track data quality manually                                                 │
+│   • Manage checkpoints                                                          │
+│                                                                                 │
+│   DLT (Declarative - WHAT you want):                                           │
+│   ──────────────────────────────────                                           │
+│   • Declare transformations                                                     │
+│   • DLT handles errors                                                          │
+│   • DLT resolves dependencies                                                   │
+│   • Automatic retries                                                           │
+│   • Built-in data quality (expectations)                                        │
+│   • Automatic state management                                                  │
+│                                                                                 │
+│   You write:          DLT manages:                                              │
+│   ┌─────────────┐    ┌─────────────────────────────────────┐                   │
+│   │ SELECT *    │ →  │ Scheduling, Recovery, Monitoring,   │                   │
+│   │ FROM ...    │    │ Dependencies, Retries, Checkpoints  │                   │
+│   └─────────────┘    └─────────────────────────────────────┘                   │
+│                                                                                 │
+└────────────────────────────────────────────────────────────────────────────────┘
+```
+
+### 15.2 DLT Core Concepts
+
+```
+┌────────────────────────────────────────────────────────────────────────────────┐
+│                    DLT TERMINOLOGY                                              │
+├────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                 │
+│   PIPELINE                                                                      │
+│   └── Collection of tables and their transformations                           │
+│       └── Runs as a single unit                                                │
+│       └── Manages dependencies automatically                                   │
+│                                                                                 │
+│   STREAMING TABLE                                                               │
+│   └── Processes data incrementally as it arrives                               │
+│   └── Maintains checkpoints automatically                                       │
+│   └── Best for: Append-only data, event streams                                │
+│                                                                                 │
+│   MATERIALIZED VIEW                                                             │
+│   └── Recomputes results when source data changes                              │
+│   └── Best for: Aggregations, joins, transformations                           │
+│                                                                                 │
+│   VIEW                                                                          │
+│   └── Virtual table (not materialized)                                         │
+│   └── Best for: Intermediate transformations                                   │
+│                                                                                 │
+│   EXPECTATIONS                                                                  │
+│   └── Data quality rules                                                        │
+│   └── Can warn, drop bad records, or fail pipeline                             │
+│                                                                                 │
+└────────────────────────────────────────────────────────────────────────────────┘
+```
+
+### 15.3 Creating Your First DLT Pipeline
+
+```python
+# dlt_bronze_layer.py
+# ─────────────────────────────────────────────────────────────────────────────
+
+import dlt
+from pyspark.sql.functions import *
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# BRONZE LAYER - Raw Data Ingestion
+# ═══════════════════════════════════════════════════════════════════════════════
+
+@dlt.table(
+    name="bronze_customers",
+    comment="Raw customer data from source system",
+    table_properties={
+        "quality": "bronze",
+        "pipelines.autoOptimize.managed": "true"
+    }
+)
+def bronze_customers():
+    """Ingest raw customer data using Auto Loader"""
+    return (
+        spark.readStream
+        .format("cloudFiles")
+        .option("cloudFiles.format", "json")
+        .option("cloudFiles.inferColumnTypes", "true")
+        .option("cloudFiles.schemaLocation", "/checkpoints/customers/schema")
+        .load("/landing/customers/")
+        .withColumn("ingestion_timestamp", current_timestamp())
+        .withColumn("source_file", input_file_name())
+    )
+
+
+@dlt.table(
+    name="bronze_orders",
+    comment="Raw order data from source system"
+)
+def bronze_orders():
+    """Ingest raw order data"""
+    return (
+        spark.readStream
+        .format("cloudFiles")
+        .option("cloudFiles.format", "csv")
+        .option("header", "true")
+        .option("cloudFiles.schemaLocation", "/checkpoints/orders/schema")
+        .load("/landing/orders/")
+        .withColumn("ingestion_timestamp", current_timestamp())
+    )
+```
+
+### 15.4 Adding Data Quality with Expectations
+
+```python
+# dlt_silver_layer.py
+# ─────────────────────────────────────────────────────────────────────────────
+
+import dlt
+from pyspark.sql.functions import *
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# SILVER LAYER - Cleaned and Validated Data
+# ═══════════════════════════════════════════════════════════════════════════════
+
+@dlt.table(
+    name="silver_customers",
+    comment="Cleaned customer data with quality checks"
+)
+@dlt.expect("valid_email", "email IS NOT NULL AND email LIKE '%@%.%'")
+@dlt.expect("valid_customer_id", "customer_id IS NOT NULL")
+@dlt.expect_or_drop("valid_name", "first_name IS NOT NULL AND last_name IS NOT NULL")
+@dlt.expect_or_fail("unique_customer", "customer_id IS NOT NULL")
+def silver_customers():
+    """Clean and validate customer data"""
+    return (
+        dlt.read_stream("bronze_customers")
+        .select(
+            col("customer_id").cast("integer"),
+            trim(col("first_name")).alias("first_name"),
+            trim(col("last_name")).alias("last_name"),
+            lower(trim(col("email"))).alias("email"),
+            col("phone"),
+            col("address"),
+            col("city"),
+            col("state"),
+            col("country"),
+            col("ingestion_timestamp")
+        )
+        .withColumn("processed_timestamp", current_timestamp())
+    )
+
+
+@dlt.table(
+    name="silver_orders",
+    comment="Cleaned order data"
+)
+@dlt.expect("valid_order_id", "order_id IS NOT NULL")
+@dlt.expect("valid_amount", "total_amount > 0")
+@dlt.expect_or_drop("valid_date", "order_date IS NOT NULL")
+def silver_orders():
+    """Clean and validate order data"""
+    return (
+        dlt.read_stream("bronze_orders")
+        .select(
+            col("order_id").cast("integer"),
+            col("customer_id").cast("integer"),
+            to_date(col("order_date"), "yyyy-MM-dd").alias("order_date"),
+            col("product_id").cast("integer"),
+            col("quantity").cast("integer"),
+            col("unit_price").cast("decimal(10,2)"),
+            (col("quantity") * col("unit_price")).alias("total_amount"),
+            col("ingestion_timestamp")
+        )
+        .withColumn("processed_timestamp", current_timestamp())
+    )
+```
+
+### 15.5 Expectation Types Explained
+
+```
+┌────────────────────────────────────────────────────────────────────────────────┐
+│                    DLT EXPECTATION TYPES                                        │
+├────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                 │
+│  @dlt.expect("name", "condition")                                              │
+│  ─────────────────────────────────                                              │
+│  • Behavior: Log warning, keep ALL records                                     │
+│  • Use when: Data quality issues are acceptable, want visibility               │
+│  • Example: @dlt.expect("valid_email", "email LIKE '%@%'")                     │
+│                                                                                 │
+│  @dlt.expect_or_drop("name", "condition")                                      │
+│  ─────────────────────────────────────────                                      │
+│  • Behavior: Drop records that fail the check                                  │
+│  • Use when: Bad records should be excluded but pipeline continues             │
+│  • Example: @dlt.expect_or_drop("has_id", "id IS NOT NULL")                    │
+│                                                                                 │
+│  @dlt.expect_or_fail("name", "condition")                                      │
+│  ─────────────────────────────────────────                                      │
+│  • Behavior: Fail entire pipeline if ANY record fails                          │
+│  • Use when: Critical data quality rules that cannot be violated               │
+│  • Example: @dlt.expect_or_fail("unique_pk", "id IS NOT NULL")                 │
+│                                                                                 │
+│  @dlt.expect_all({"name1": "cond1", "name2": "cond2"})                         │
+│  ─────────────────────────────────────────────────────                          │
+│  • Apply multiple expectations at once                                         │
+│                                                                                 │
+└────────────────────────────────────────────────────────────────────────────────┘
+```
+
+### 15.6 Gold Layer - Aggregations and Business Logic
+
+```python
+# dlt_gold_layer.py
+# ─────────────────────────────────────────────────────────────────────────────
+
+import dlt
+from pyspark.sql.functions import *
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# GOLD LAYER - Business-Ready Aggregations
+# ═══════════════════════════════════════════════════════════════════════════════
+
+@dlt.table(
+    name="gold_customer_orders",
+    comment="Customer orders summary - materialized view"
+)
+def gold_customer_orders():
+    """Join customers with their orders"""
+    customers = dlt.read("silver_customers")
+    orders = dlt.read("silver_orders")
+
+    return (
+        customers.alias("c")
+        .join(orders.alias("o"), "customer_id", "left")
+        .select(
+            col("c.customer_id"),
+            col("c.first_name"),
+            col("c.last_name"),
+            col("c.email"),
+            col("o.order_id"),
+            col("o.order_date"),
+            col("o.total_amount")
+        )
+    )
+
+
+@dlt.table(
+    name="gold_daily_sales",
+    comment="Daily sales aggregation"
+)
+def gold_daily_sales():
+    """Daily sales summary"""
+    return (
+        dlt.read("silver_orders")
+        .groupBy("order_date")
+        .agg(
+            count("order_id").alias("total_orders"),
+            sum("total_amount").alias("total_revenue"),
+            avg("total_amount").alias("avg_order_value"),
+            countDistinct("customer_id").alias("unique_customers")
+        )
+    )
+
+
+@dlt.table(
+    name="gold_customer_lifetime_value",
+    comment="Customer lifetime value calculation"
+)
+def gold_customer_lifetime_value():
+    """Calculate customer lifetime metrics"""
+    customers = dlt.read("silver_customers")
+    orders = dlt.read("silver_orders")
+
+    customer_metrics = (
+        orders.groupBy("customer_id")
+        .agg(
+            count("order_id").alias("total_orders"),
+            sum("total_amount").alias("lifetime_value"),
+            min("order_date").alias("first_order_date"),
+            max("order_date").alias("last_order_date"),
+            avg("total_amount").alias("avg_order_value")
+        )
+    )
+
+    return (
+        customers.join(customer_metrics, "customer_id", "left")
+        .select(
+            col("customer_id"),
+            col("first_name"),
+            col("last_name"),
+            col("email"),
+            coalesce(col("total_orders"), lit(0)).alias("total_orders"),
+            coalesce(col("lifetime_value"), lit(0)).alias("lifetime_value"),
+            col("first_order_date"),
+            col("last_order_date"),
+            col("avg_order_value"),
+            datediff(col("last_order_date"), col("first_order_date")).alias("customer_tenure_days")
+        )
+    )
+```
+
+### 15.7 DLT with Change Data Capture (CDC)
+
+```python
+# dlt_cdc.py - Handle incremental updates
+# ─────────────────────────────────────────────────────────────────────────────
+
+import dlt
+from pyspark.sql.functions import *
+
+@dlt.table(
+    name="customers_cdc",
+    comment="Customer dimension with SCD Type 1 using CDC"
+)
+def customers_cdc():
+    """Apply CDC changes to customer dimension"""
+    return (
+        dlt.read_stream("bronze_customers_cdc")
+        .select(
+            col("customer_id"),
+            col("first_name"),
+            col("last_name"),
+            col("email"),
+            col("operation"),  # INSERT, UPDATE, DELETE
+            col("sequence_number")
+        )
+    )
+
+
+# Apply changes using APPLY CHANGES INTO
+dlt.create_streaming_table(
+    name="silver_customers_scd",
+    comment="Customer dimension with change tracking"
+)
+
+dlt.apply_changes(
+    target="silver_customers_scd",
+    source="customers_cdc",
+    keys=["customer_id"],
+    sequence_by="sequence_number",
+    apply_as_deletes=expr("operation = 'DELETE'"),
+    except_column_list=["operation", "sequence_number"],
+    stored_as_scd_type=2  # or 1 for overwrite
+)
+```
+
+### 15.8 Creating DLT Pipeline in Databricks
+
+```json
+{
+    "name": "medallion_pipeline",
+    "target": "sales_lakehouse",
+    "development": true,
+    "continuous": false,
+    "channel": "CURRENT",
+    "clusters": [
+        {
+            "label": "default",
+            "autoscale": {
+                "min_workers": 1,
+                "max_workers": 4,
+                "mode": "ENHANCED"
+            }
+        }
+    ],
+    "libraries": [
+        {"notebook": {"path": "/Repos/project/dlt/bronze_layer"}},
+        {"notebook": {"path": "/Repos/project/dlt/silver_layer"}},
+        {"notebook": {"path": "/Repos/project/dlt/gold_layer"}}
+    ],
+    "configuration": {
+        "source_path": "/landing/",
+        "checkpoint_path": "/checkpoints/"
+    }
+}
+```
+
+### 15.9 DLT Pipeline Modes
+
+```
+┌────────────────────────────────────────────────────────────────────────────────┐
+│                    DLT PIPELINE MODES                                           │
+├────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                 │
+│   TRIGGERED MODE (Default):                                                     │
+│   ─────────────────────────                                                     │
+│   • Runs once when manually triggered or scheduled                             │
+│   • Processes all available data then stops                                    │
+│   • Best for: Batch processing, scheduled runs                                 │
+│                                                                                 │
+│   CONTINUOUS MODE:                                                              │
+│   ────────────────                                                              │
+│   • Runs continuously, processing data as it arrives                          │
+│   • Low latency (near real-time)                                               │
+│   • Best for: Real-time dashboards, streaming use cases                        │
+│   • Set "continuous": true in pipeline config                                  │
+│                                                                                 │
+│   DEVELOPMENT MODE:                                                             │
+│   ──────────────────                                                            │
+│   • Relaxed cluster termination                                                │
+│   • Easier debugging                                                            │
+│   • Set "development": true in pipeline config                                 │
+│                                                                                 │
+│   PRODUCTION MODE:                                                              │
+│   ─────────────────                                                             │
+│   • Enhanced monitoring                                                         │
+│   • Automatic retries                                                           │
+│   • Set "development": false                                                   │
+│                                                                                 │
+└────────────────────────────────────────────────────────────────────────────────┘
+```
+
+### 15.10 Monitoring DLT Pipelines
+
+```python
+# Query DLT event logs for monitoring
+# ─────────────────────────────────────────────────────────────────────────────
+
+# DLT creates event logs automatically
+event_log_path = "/pipelines/{pipeline_id}/system/events"
+
+# Read event log
+events_df = spark.read.format("delta").load(event_log_path)
+
+# Check data quality metrics
+quality_metrics = (
+    events_df
+    .filter("event_type = 'flow_progress'")
+    .select(
+        "timestamp",
+        "origin.flow_name",
+        "details:flow_progress.metrics.num_output_rows",
+        "details:flow_progress.data_quality.expectations"
+    )
+)
+
+display(quality_metrics)
+
+# Check for failures
+failures = (
+    events_df
+    .filter("event_type = 'flow_progress' AND details:flow_progress.status = 'FAILED'")
+    .select(
+        "timestamp",
+        "origin.flow_name",
+        "details:flow_progress.status",
+        "error"
+    )
+)
+
+display(failures)
+```
+
+```
+┌────────────────────────────────────────────────────────────────────────────────┐
+│                    DLT BEST PRACTICES                                           │
+├────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                 │
+│  1. ORGANIZE BY LAYER                                                           │
+│     └── Separate notebooks for bronze, silver, gold                            │
+│     └── Makes debugging and maintenance easier                                 │
+│                                                                                 │
+│  2. USE EXPECTATIONS WISELY                                                     │
+│     └── Bronze: Log only (expect)                                              │
+│     └── Silver: Drop bad records (expect_or_drop)                              │
+│     └── Gold: Fail on critical issues (expect_or_fail)                         │
+│                                                                                 │
+│  3. START WITH TRIGGERED, MOVE TO CONTINUOUS                                    │
+│     └── Develop and test in triggered mode                                     │
+│     └── Switch to continuous only when needed                                  │
+│                                                                                 │
+│  4. MONITOR DATA QUALITY                                                        │
+│     └── Review expectation metrics regularly                                   │
+│     └── Set up alerts for quality degradation                                  │
+│                                                                                 │
+│  5. USE MATERIALIZED VIEWS FOR AGGREGATIONS                                     │
+│     └── Let DLT handle incremental refresh                                     │
+│     └── More efficient than recomputing everything                             │
+│                                                                                 │
+│  6. VERSION YOUR DLT NOTEBOOKS                                                  │
+│     └── Use Databricks Repos or Git integration                                │
+│     └── Enables CI/CD for pipelines                                            │
+│                                                                                 │
+└────────────────────────────────────────────────────────────────────────────────┘
+```
