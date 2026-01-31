@@ -4695,3 +4695,568 @@ display(failures)
 │                                                                                 │
 └────────────────────────────────────────────────────────────────────────────────┘
 ```
+
+---
+
+## 16. Databricks Asset Bundles for CI/CD
+
+### 16.1 What are Databricks Asset Bundles?
+
+**Simple Explanation:** Asset Bundles (DABs) are like shipping containers for your Databricks projects. Just as shipping containers standardize how goods are packaged and transported, Asset Bundles standardize how you package and deploy notebooks, jobs, and pipelines across environments.
+
+```
+┌────────────────────────────────────────────────────────────────────────────────┐
+│                    TRADITIONAL vs ASSET BUNDLES DEPLOYMENT                      │
+├────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                 │
+│   TRADITIONAL (Manual):                                                         │
+│   ─────────────────────                                                         │
+│   Developer → Copy notebooks manually → Configure jobs in UI → Deploy          │
+│   • Error-prone                                                                 │
+│   • No version control for jobs                                                │
+│   • Hard to replicate across environments                                       │
+│                                                                                 │
+│   ASSET BUNDLES (Automated):                                                    │
+│   ─────────────────────────                                                     │
+│   ┌─────────────┐    ┌─────────────┐    ┌─────────────┐    ┌─────────────┐    │
+│   │    Git      │───▶│   CI/CD     │───▶│   Bundle    │───▶│  Databricks │    │
+│   │   Commit    │    │  Pipeline   │    │   Deploy    │    │  Workspace  │    │
+│   └─────────────┘    └─────────────┘    └─────────────┘    └─────────────┘    │
+│   • Version controlled                                                          │
+│   • Automated deployment                                                        │
+│   • Environment-specific configs                                               │
+│   • Reproducible                                                                │
+│                                                                                 │
+└────────────────────────────────────────────────────────────────────────────────┘
+```
+
+### 16.2 Installing Databricks CLI
+
+```bash
+# Install Databricks CLI (v0.200+)
+# ─────────────────────────────────────────────────────────────────────────────
+
+# macOS (Homebrew)
+brew tap databricks/tap
+brew install databricks
+
+# Windows (winget)
+winget install Databricks.DatabricksCLI
+
+# Linux (curl)
+curl -fsSL https://raw.githubusercontent.com/databricks/setup-cli/main/install.sh | sh
+
+# Verify installation
+databricks --version
+
+# Configure authentication
+databricks configure --token
+# Enter: Workspace URL (https://adb-xxx.azuredatabricks.net)
+# Enter: Personal Access Token (generate from User Settings in workspace)
+
+# Verify connection
+databricks workspace list /
+```
+
+### 16.3 Project Structure
+
+```
+┌────────────────────────────────────────────────────────────────────────────────┐
+│                    ASSET BUNDLE PROJECT STRUCTURE                               │
+├────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                 │
+│   my-data-project/                                                              │
+│   │                                                                             │
+│   ├── databricks.yml              # Main bundle configuration                  │
+│   │                                                                             │
+│   ├── resources/                  # Resource definitions                       │
+│   │   ├── jobs.yml               # Job configurations                          │
+│   │   ├── pipelines.yml          # DLT pipeline configurations                │
+│   │   └── clusters.yml           # Cluster configurations                      │
+│   │                                                                             │
+│   ├── src/                       # Source code                                  │
+│   │   ├── notebooks/             # Databricks notebooks                        │
+│   │   │   ├── bronze/                                                          │
+│   │   │   ├── silver/                                                          │
+│   │   │   └── gold/                                                            │
+│   │   ├── python/                # Python wheel packages                       │
+│   │   │   └── my_package/                                                      │
+│   │   └── sql/                   # SQL files                                   │
+│   │                                                                             │
+│   ├── tests/                     # Unit and integration tests                  │
+│   │                                                                             │
+│   └── .github/                   # GitHub Actions workflows                    │
+│       └── workflows/                                                            │
+│           └── deploy.yml                                                        │
+│                                                                                 │
+└────────────────────────────────────────────────────────────────────────────────┘
+```
+
+### 16.4 Creating databricks.yml
+
+```yaml
+# databricks.yml - Main bundle configuration
+# ─────────────────────────────────────────────────────────────────────────────
+
+bundle:
+  name: sales-data-pipeline
+
+# Include additional resource files
+include:
+  - resources/*.yml
+
+# Variables for parameterization
+variables:
+  catalog:
+    default: dev_catalog
+  warehouse_id:
+    description: "SQL Warehouse ID for queries"
+
+# Workspace settings
+workspace:
+  host: https://adb-1234567890.azuredatabricks.net
+
+# Environment-specific configurations
+targets:
+  # Development environment
+  dev:
+    mode: development
+    default: true
+    workspace:
+      host: https://adb-dev.azuredatabricks.net
+    variables:
+      catalog: dev_catalog
+
+  # Staging environment
+  staging:
+    workspace:
+      host: https://adb-staging.azuredatabricks.net
+    variables:
+      catalog: staging_catalog
+
+  # Production environment
+  prod:
+    mode: production
+    workspace:
+      host: https://adb-prod.azuredatabricks.net
+    variables:
+      catalog: prod_catalog
+    run_as:
+      service_principal_name: "sp-data-pipeline"
+```
+
+### 16.5 Defining Jobs
+
+```yaml
+# resources/jobs.yml
+# ─────────────────────────────────────────────────────────────────────────────
+
+resources:
+  jobs:
+    # Daily ETL Job
+    daily_etl_job:
+      name: "daily-etl-${bundle.target}"
+      description: "Daily ETL pipeline for sales data"
+
+      # Schedule
+      schedule:
+        quartz_cron_expression: "0 0 2 * * ?"  # Daily at 2 AM
+        timezone_id: "UTC"
+
+      # Job clusters
+      job_clusters:
+        - job_cluster_key: "etl-cluster"
+          new_cluster:
+            spark_version: "13.3.x-scala2.12"
+            node_type_id: "Standard_DS3_v2"
+            num_workers: 2
+            spark_conf:
+              spark.databricks.delta.preview.enabled: "true"
+
+      # Tasks
+      tasks:
+        # Task 1: Bronze ingestion
+        - task_key: "bronze_ingestion"
+          job_cluster_key: "etl-cluster"
+          notebook_task:
+            notebook_path: "../src/notebooks/bronze/ingest_data.py"
+            base_parameters:
+              catalog: "${var.catalog}"
+              source_path: "/landing/sales/"
+
+        # Task 2: Silver transformation
+        - task_key: "silver_transformation"
+          depends_on:
+            - task_key: "bronze_ingestion"
+          job_cluster_key: "etl-cluster"
+          notebook_task:
+            notebook_path: "../src/notebooks/silver/transform_data.py"
+            base_parameters:
+              catalog: "${var.catalog}"
+
+        # Task 3: Gold aggregation
+        - task_key: "gold_aggregation"
+          depends_on:
+            - task_key: "silver_transformation"
+          job_cluster_key: "etl-cluster"
+          notebook_task:
+            notebook_path: "../src/notebooks/gold/aggregate_data.py"
+            base_parameters:
+              catalog: "${var.catalog}"
+
+      # Email notifications
+      email_notifications:
+        on_failure:
+          - data-team@company.com
+        on_success:
+          - data-team@company.com
+
+      # Tags
+      tags:
+        project: "sales-pipeline"
+        environment: "${bundle.target}"
+```
+
+### 16.6 Defining DLT Pipelines
+
+```yaml
+# resources/pipelines.yml
+# ─────────────────────────────────────────────────────────────────────────────
+
+resources:
+  pipelines:
+    # Sales DLT Pipeline
+    sales_pipeline:
+      name: "sales-dlt-pipeline-${bundle.target}"
+      target: "${var.catalog}.sales"
+      development: true
+      continuous: false
+      channel: "CURRENT"
+
+      clusters:
+        - label: "default"
+          autoscale:
+            min_workers: 1
+            max_workers: 4
+            mode: "ENHANCED"
+
+      libraries:
+        - notebook:
+            path: "../src/notebooks/dlt/bronze_layer.py"
+        - notebook:
+            path: "../src/notebooks/dlt/silver_layer.py"
+        - notebook:
+            path: "../src/notebooks/dlt/gold_layer.py"
+
+      configuration:
+        source_path: "/landing/sales/"
+        checkpoint_path: "/checkpoints/sales/"
+
+      # Photon acceleration
+      photon: true
+
+      # Notifications
+      notifications:
+        - email_recipients:
+            - data-team@company.com
+          alerts:
+            - on_update_failure
+            - on_flow_failure
+```
+
+### 16.7 Bundle CLI Commands
+
+```bash
+# Bundle Development Workflow
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Initialize a new bundle project
+databricks bundle init
+
+# Validate bundle configuration
+databricks bundle validate
+
+# Deploy bundle to workspace (dev by default)
+databricks bundle deploy
+
+# Deploy to specific target
+databricks bundle deploy --target staging
+databricks bundle deploy --target prod
+
+# Run a specific job
+databricks bundle run daily_etl_job
+
+# Run with parameters override
+databricks bundle run daily_etl_job --params '{"date": "2024-01-15"}'
+
+# Destroy bundle resources
+databricks bundle destroy
+
+# Sync local files to workspace (development)
+databricks bundle sync
+```
+
+### 16.8 GitHub Actions CI/CD Pipeline
+
+```yaml
+# .github/workflows/deploy.yml
+# ─────────────────────────────────────────────────────────────────────────────
+
+name: Deploy Databricks Bundle
+
+on:
+  push:
+    branches:
+      - main        # Production
+      - develop     # Staging
+  pull_request:
+    branches:
+      - main
+      - develop
+
+env:
+  DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+  DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
+
+jobs:
+  # Validation job
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Databricks CLI
+        run: |
+          curl -fsSL https://raw.githubusercontent.com/databricks/setup-cli/main/install.sh | sh
+
+      - name: Validate bundle
+        run: databricks bundle validate
+
+  # Test job
+  test:
+    needs: validate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: |
+          pip install pytest pyspark
+
+      - name: Run unit tests
+        run: pytest tests/ -v
+
+  # Deploy to staging (on develop branch)
+  deploy-staging:
+    needs: test
+    if: github.ref == 'refs/heads/develop'
+    runs-on: ubuntu-latest
+    environment: staging
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Databricks CLI
+        run: |
+          curl -fsSL https://raw.githubusercontent.com/databricks/setup-cli/main/install.sh | sh
+
+      - name: Deploy to staging
+        run: databricks bundle deploy --target staging
+
+  # Deploy to production (on main branch)
+  deploy-production:
+    needs: test
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Databricks CLI
+        run: |
+          curl -fsSL https://raw.githubusercontent.com/databricks/setup-cli/main/install.sh | sh
+
+      - name: Deploy to production
+        run: databricks bundle deploy --target prod
+
+      - name: Run production job
+        run: databricks bundle run daily_etl_job --target prod
+```
+
+### 16.9 Azure DevOps Pipeline
+
+```yaml
+# azure-pipelines.yml
+# ─────────────────────────────────────────────────────────────────────────────
+
+trigger:
+  branches:
+    include:
+      - main
+      - develop
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+variables:
+  - group: databricks-credentials  # Variable group with secrets
+
+stages:
+  # Validation Stage
+  - stage: Validate
+    displayName: 'Validate Bundle'
+    jobs:
+      - job: ValidateBundle
+        steps:
+          - task: UsePythonVersion@0
+            inputs:
+              versionSpec: '3.10'
+
+          - script: |
+              curl -fsSL https://raw.githubusercontent.com/databricks/setup-cli/main/install.sh | sh
+            displayName: 'Install Databricks CLI'
+
+          - script: |
+              databricks bundle validate
+            displayName: 'Validate Bundle'
+            env:
+              DATABRICKS_HOST: $(DATABRICKS_HOST)
+              DATABRICKS_TOKEN: $(DATABRICKS_TOKEN)
+
+  # Deploy to Staging
+  - stage: DeployStaging
+    displayName: 'Deploy to Staging'
+    dependsOn: Validate
+    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/develop'))
+    jobs:
+      - deployment: DeployToStaging
+        environment: 'staging'
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - checkout: self
+
+                - script: |
+                    curl -fsSL https://raw.githubusercontent.com/databricks/setup-cli/main/install.sh | sh
+                    databricks bundle deploy --target staging
+                  displayName: 'Deploy Bundle to Staging'
+                  env:
+                    DATABRICKS_HOST: $(DATABRICKS_HOST_STAGING)
+                    DATABRICKS_TOKEN: $(DATABRICKS_TOKEN_STAGING)
+
+  # Deploy to Production
+  - stage: DeployProduction
+    displayName: 'Deploy to Production'
+    dependsOn: Validate
+    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+    jobs:
+      - deployment: DeployToProduction
+        environment: 'production'
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - checkout: self
+
+                - script: |
+                    curl -fsSL https://raw.githubusercontent.com/databricks/setup-cli/main/install.sh | sh
+                    databricks bundle deploy --target prod
+                  displayName: 'Deploy Bundle to Production'
+                  env:
+                    DATABRICKS_HOST: $(DATABRICKS_HOST_PROD)
+                    DATABRICKS_TOKEN: $(DATABRICKS_TOKEN_PROD)
+```
+
+### 16.10 Best Practices
+
+```
+┌────────────────────────────────────────────────────────────────────────────────┐
+│                    ASSET BUNDLES BEST PRACTICES                                 │
+├────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                 │
+│  1. USE VARIABLES FOR ENVIRONMENT-SPECIFIC VALUES                               │
+│     └── Catalog names, paths, cluster sizes                                    │
+│     └── Avoid hardcoding environment-specific values                           │
+│                                                                                 │
+│  2. SEPARATE RESOURCES INTO MULTIPLE FILES                                      │
+│     └── jobs.yml, pipelines.yml, clusters.yml                                  │
+│     └── Easier to manage and review                                            │
+│                                                                                 │
+│  3. USE SERVICE PRINCIPALS FOR PRODUCTION                                       │
+│     └── Never use personal tokens in production                                │
+│     └── Configure run_as in prod target                                        │
+│                                                                                 │
+│  4. IMPLEMENT PROPER TESTING                                                    │
+│     └── Unit tests for Python code                                             │
+│     └── Integration tests before production deploy                             │
+│                                                                                 │
+│  5. USE ENVIRONMENT PROTECTION RULES                                            │
+│     └── Require approval for production deployments                            │
+│     └── Use GitHub/Azure DevOps environments                                   │
+│                                                                                 │
+│  6. VERSION CONTROL EVERYTHING                                                  │
+│     └── databricks.yml, resources, notebooks                                   │
+│     └── Never modify production resources manually                             │
+│                                                                                 │
+│  7. IMPLEMENT ROLLBACK STRATEGY                                                 │
+│     └── Tag successful deployments                                             │
+│     └── Have a process to revert to previous version                           │
+│                                                                                 │
+│  8. MONITOR DEPLOYMENTS                                                         │
+│     └── Set up alerts for failed deployments                                   │
+│     └── Track deployment history                                               │
+│                                                                                 │
+└────────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Conclusion
+
+Congratulations! You've completed this comprehensive Azure Data Engineering guide covering:
+
+1. **Azure Fundamentals** - Setting up your cloud environment
+2. **Azure Data Factory** - Building ETL/ELT pipelines
+3. **Incremental Ingestion** - Efficient data loading patterns
+4. **Looping & Logic Apps** - Advanced orchestration
+5. **Azure Databricks** - Big data processing platform
+6. **Unity Catalog** - Data governance and security
+7. **Spark Streaming** - Real-time data processing
+8. **PySpark Transformations** - Data manipulation at scale
+9. **Metadata-Driven Pipelines** - Template-based automation
+10. **Star Schema & SCD** - Dimensional data modeling
+11. **Delta Live Tables** - Declarative data pipelines
+12. **Asset Bundles** - CI/CD for Databricks
+
+```
+┌────────────────────────────────────────────────────────────────────────────────┐
+│                         NEXT STEPS                                              │
+├────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                 │
+│  1. Build a complete project using these concepts                              │
+│  2. Explore Azure Synapse Analytics for enterprise scenarios                   │
+│  3. Learn about data mesh and data products                                    │
+│  4. Implement data quality frameworks                                          │
+│  5. Explore machine learning integration with MLflow                           │
+│  6. Study for Azure Data Engineer certification (DP-203)                       │
+│                                                                                 │
+│  Resources:                                                                     │
+│  • Microsoft Learn: https://learn.microsoft.com/azure/                         │
+│  • Databricks Documentation: https://docs.databricks.com/                      │
+│  • Delta Lake: https://delta.io/                                               │
+│                                                                                 │
+└────────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+*This guide is part of a comprehensive 7-hour data engineering course. For the complete video tutorial, visit the original course.*
