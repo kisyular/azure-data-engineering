@@ -1576,3 +1576,494 @@ az logic workflow create \
     }
 }
 ```
+
+---
+
+## 9. Azure Databricks Tutorial
+
+### 9.1 What is Azure Databricks?
+
+**Simple Explanation:** Azure Databricks is like a super-powered workshop where you can process massive amounts of data. Imagine having a regular kitchen (your laptop) vs. a commercial kitchen with 100 chefs (Databricks) - both can cook, but one can handle restaurant-scale operations.
+
+```
+┌────────────────────────────────────────────────────────────────────────────────┐
+│                    DATABRICKS EXPLAINED                                         │
+├────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                 │
+│   Traditional Processing              Databricks (Distributed)                  │
+│   ─────────────────────               ─────────────────────────                │
+│                                                                                 │
+│   ┌──────────────┐                   ┌──────────────────────────┐              │
+│   │   1 Machine  │                   │      DRIVER NODE         │              │
+│   │              │                   │   (Coordinator/Brain)    │              │
+│   │  ┌────────┐  │                   └────────────┬─────────────┘              │
+│   │  │ Python │  │                                │                            │
+│   │  │ Script │  │                   ┌────────────┼────────────┐               │
+│   │  └────────┘  │                   ▼            ▼            ▼               │
+│   │              │                   ┌────┐    ┌────┐    ┌────┐               │
+│   │  Process 1GB │                   │Node│    │Node│    │Node│               │
+│   │  at a time   │                   │ 1  │    │ 2  │    │ 3  │               │
+│   └──────────────┘                   └────┘    └────┘    └────┘               │
+│                                      Process 100GB+ in parallel                │
+│   Time: Hours                        Time: Minutes                              │
+│                                                                                 │
+└────────────────────────────────────────────────────────────────────────────────┘
+```
+
+**Key Components:**
+
+| Component | What It Is | Analogy |
+|-----------|-----------|---------|
+| **Workspace** | Your working environment | Your office building |
+| **Cluster** | Group of VMs that process data | Team of workers |
+| **Notebook** | Interactive code environment | Your notepad |
+| **Job** | Scheduled/automated execution | Task on your calendar |
+| **DBFS** | Databricks File System | Shared company drive |
+
+### 9.2 Creating an Azure Databricks Workspace
+
+**Via Azure Portal:**
+
+1. Search "Azure Databricks" → Create
+2. Configure:
+   - **Workspace name:** dbw-dataeng-dev-001
+   - **Region:** East US
+   - **Pricing Tier:** Premium (for Unity Catalog)
+
+**Via Azure CLI:**
+
+```bash
+# Create Databricks Workspace
+az databricks workspace create \
+    --name "dbw-dataeng-dev-001" \
+    --resource-group "data-eng-rg" \
+    --location "eastus" \
+    --sku premium
+
+# Get workspace URL
+az databricks workspace show \
+    --name "dbw-dataeng-dev-001" \
+    --resource-group "data-eng-rg" \
+    --query "workspaceUrl" -o tsv
+```
+
+### 9.3 Understanding the Databricks Interface
+
+```
+┌────────────────────────────────────────────────────────────────────────────────┐
+│                    DATABRICKS WORKSPACE LAYOUT                                  │
+├────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                 │
+│  ┌──────────────────┐  ┌───────────────────────────────────────────────────┐  │
+│  │  SIDEBAR         │  │              MAIN WORKSPACE AREA                  │  │
+│  │  ─────────       │  │                                                   │  │
+│  │  📁 Workspace    │  │  ┌─────────────────────────────────────────────┐ │  │
+│  │  📊 Repos        │  │  │              NOTEBOOK                       │ │  │
+│  │  💾 Data         │  │  │  ┌────────────────────────────────────────┐│ │  │
+│  │  ⚙️ Compute      │  │  │  │ # Cell 1 - Python                     ││ │  │
+│  │  🔄 Workflows    │  │  │  │ df = spark.read.parquet("/data/...")  ││ │  │
+│  │  📈 SQL          │  │  │  └────────────────────────────────────────┘│ │  │
+│  │  🔬 ML           │  │  │  ┌────────────────────────────────────────┐│ │  │
+│  │                  │  │  │  │ # Cell 2 - SQL                        ││ │  │
+│  │                  │  │  │  │ SELECT * FROM customers LIMIT 10      ││ │  │
+│  │                  │  │  │  └────────────────────────────────────────┘│ │  │
+│  │                  │  │  └─────────────────────────────────────────────┘ │  │
+│  └──────────────────┘  └───────────────────────────────────────────────────┘  │
+│                                                                                 │
+└────────────────────────────────────────────────────────────────────────────────┘
+```
+
+### 9.4 Clusters Deep Dive
+
+**What is a Cluster?**
+
+A cluster is a set of virtual machines that work together to process your data. Think of it as hiring a team of workers - more workers = faster processing.
+
+```
+┌────────────────────────────────────────────────────────────────────────────────┐
+│                    CLUSTER ARCHITECTURE                                         │
+├────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                 │
+│   ┌─────────────────────────────────────────────────────────────────────────┐ │
+│   │                         CLUSTER                                          │ │
+│   │   ┌─────────────────────────────────────────────────────────────────┐   │ │
+│   │   │  DRIVER NODE                                                     │   │ │
+│   │   │  • Coordinates work                                              │   │ │
+│   │   │  • Runs your notebook                                            │   │ │
+│   │   │  • Collects results                                              │   │ │
+│   │   └─────────────────────────────────────────────────────────────────┘   │ │
+│   │                              │                                           │ │
+│   │              ┌───────────────┼───────────────┐                          │ │
+│   │              ▼               ▼               ▼                          │ │
+│   │   ┌──────────────┐  ┌──────────────┐  ┌──────────────┐                 │ │
+│   │   │ WORKER NODE  │  │ WORKER NODE  │  │ WORKER NODE  │                 │ │
+│   │   │ • Processes  │  │ • Processes  │  │ • Processes  │                 │ │
+│   │   │   data       │  │   data       │  │   data       │                 │ │
+│   │   │ • 4-16 cores │  │ • 4-16 cores │  │ • 4-16 cores │                 │ │
+│   │   └──────────────┘  └──────────────┘  └──────────────┘                 │ │
+│   └─────────────────────────────────────────────────────────────────────────┘ │
+│                                                                                 │
+│   CLUSTER MODES:                                                                │
+│   ─────────────                                                                 │
+│   • All-Purpose: Interactive development (stays running)                       │
+│   • Job Cluster: Runs once and terminates (cost-effective)                     │
+│                                                                                 │
+└────────────────────────────────────────────────────────────────────────────────┘
+```
+
+**Cluster Configuration JSON:**
+
+```json
+{
+    "cluster_name": "data-engineering-cluster",
+    "spark_version": "13.3.x-scala2.12",
+    "node_type_id": "Standard_DS3_v2",
+    "num_workers": 2,
+    "autoscale": {
+        "min_workers": 1,
+        "max_workers": 4
+    },
+    "autotermination_minutes": 30,
+    "spark_conf": {
+        "spark.databricks.delta.preview.enabled": "true"
+    },
+    "custom_tags": {
+        "Environment": "Development",
+        "Project": "DataEngineering"
+    }
+}
+```
+
+**Cluster Best Practices:**
+
+```
+┌────────────────────────────────────────────────────────────────────────────────┐
+│                    CLUSTER SIZING GUIDE                                         │
+├────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                 │
+│   Data Size        Recommended Workers    Node Type                            │
+│   ─────────        ───────────────────    ─────────                            │
+│   < 10 GB          1-2 workers            Standard_DS3_v2                      │
+│   10-100 GB        2-4 workers            Standard_DS4_v2                      │
+│   100 GB - 1 TB    4-8 workers            Standard_DS5_v2                      │
+│   > 1 TB           8+ workers             Standard_E8s_v3                      │
+│                                                                                 │
+│   COST SAVING TIPS:                                                            │
+│   ─────────────────                                                            │
+│   1. Enable autoscaling (min 1, max as needed)                                 │
+│   2. Set auto-termination (30-60 minutes)                                      │
+│   3. Use spot instances for non-critical workloads                             │
+│   4. Use job clusters for production (not all-purpose)                         │
+│                                                                                 │
+└────────────────────────────────────────────────────────────────────────────────┘
+```
+
+### 9.5 Notebooks in Databricks
+
+**Creating Your First Notebook:**
+
+```python
+# Cell 1: Basic Spark operations
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Create a simple DataFrame
+data = [
+    (1, "John", "Engineering", 75000),
+    (2, "Jane", "Marketing", 65000),
+    (3, "Bob", "Engineering", 80000),
+    (4, "Alice", "Sales", 70000)
+]
+
+columns = ["id", "name", "department", "salary"]
+
+df = spark.createDataFrame(data, columns)
+
+# Display the DataFrame
+display(df)
+```
+
+```python
+# Cell 2: Read data from Azure Data Lake
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Read Parquet files
+df_customers = spark.read.parquet(
+    "abfss://bronze@stdataengdev001.dfs.core.windows.net/customers/"
+)
+
+# Show schema
+df_customers.printSchema()
+
+# Show sample data
+display(df_customers.limit(10))
+```
+
+```sql
+-- Cell 3: SQL Magic (change cell language)
+-- ─────────────────────────────────────────────────────────────────────────────
+
+-- You can write SQL directly in notebooks
+SELECT
+    department,
+    COUNT(*) as employee_count,
+    AVG(salary) as avg_salary
+FROM employees
+GROUP BY department
+ORDER BY avg_salary DESC
+```
+
+### 9.6 DBFS - Databricks File System
+
+```
+┌────────────────────────────────────────────────────────────────────────────────┐
+│                    DBFS STRUCTURE                                               │
+├────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                 │
+│   /                                                                             │
+│   ├── /FileStore/           ← Upload files via UI                              │
+│   │   ├── /tables/          ← Uploaded tables                                  │
+│   │   └── /shared_uploads/  ← Shared files                                     │
+│   │                                                                             │
+│   ├── /mnt/                 ← Mounted external storage                         │
+│   │   ├── /bronze/          ← Mount to ADLS bronze container                   │
+│   │   ├── /silver/          ← Mount to ADLS silver container                   │
+│   │   └── /gold/            ← Mount to ADLS gold container                     │
+│   │                                                                             │
+│   ├── /user/                ← User-specific directories                        │
+│   │   └── /hive/            ← Hive metastore data                              │
+│   │                                                                             │
+│   └── /databricks-datasets/ ← Sample datasets                                  │
+│                                                                                 │
+└────────────────────────────────────────────────────────────────────────────────┘
+```
+
+**Working with DBFS:**
+
+```python
+# List files in DBFS
+dbutils.fs.ls("/FileStore/")
+
+# Read a file
+df = spark.read.csv("/FileStore/tables/sample.csv", header=True)
+
+# Write data
+df.write.mode("overwrite").parquet("/FileStore/output/processed_data")
+
+# Copy files
+dbutils.fs.cp("/source/file.csv", "/destination/file.csv")
+
+# Remove files
+dbutils.fs.rm("/path/to/file", recurse=True)
+```
+
+### 9.7 Mounting Azure Data Lake Storage
+
+**Why Mount?** Mounting creates a shortcut to your cloud storage, so you can access it like a local folder.
+
+```python
+# Mount Azure Data Lake Storage Gen2
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Configuration
+storage_account = "stdataengdev001"
+container = "bronze"
+mount_point = "/mnt/bronze"
+
+# Using Service Principal
+configs = {
+    "fs.azure.account.auth.type": "OAuth",
+    "fs.azure.account.oauth.provider.type": "org.apache.hadoop.fs.azurebfs.oauth2.ClientCredsTokenProvider",
+    "fs.azure.account.oauth2.client.id": dbutils.secrets.get(scope="keyvault-scope", key="sp-client-id"),
+    "fs.azure.account.oauth2.client.secret": dbutils.secrets.get(scope="keyvault-scope", key="sp-client-secret"),
+    "fs.azure.account.oauth2.client.endpoint": f"https://login.microsoftonline.com/{dbutils.secrets.get(scope='keyvault-scope', key='tenant-id')}/oauth2/token"
+}
+
+# Mount the storage
+dbutils.fs.mount(
+    source=f"abfss://{container}@{storage_account}.dfs.core.windows.net/",
+    mount_point=mount_point,
+    extra_configs=configs
+)
+
+# Verify mount
+display(dbutils.fs.ls(mount_point))
+```
+
+**Access Patterns Comparison:**
+
+```
+┌────────────────────────────────────────────────────────────────────────────────┐
+│                    STORAGE ACCESS PATTERNS                                      │
+├────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                 │
+│  METHOD 1: Direct Access (ABFSS)                                               │
+│  ────────────────────────────────                                              │
+│  spark.read.parquet("abfss://container@account.dfs.core.windows.net/path")     │
+│  ✓ Works with Unity Catalog                                                    │
+│  ✓ Modern approach                                                              │
+│  ✗ Long URLs                                                                    │
+│                                                                                 │
+│  METHOD 2: Mount Points                                                         │
+│  ──────────────────────                                                         │
+│  spark.read.parquet("/mnt/bronze/path")                                        │
+│  ✓ Simple, short paths                                                          │
+│  ✗ Not recommended with Unity Catalog                                          │
+│  ✗ Security concerns (shared credentials)                                       │
+│                                                                                 │
+│  METHOD 3: Unity Catalog External Locations (Recommended)                       │
+│  ─────────────────────────────────────────────────────────                      │
+│  spark.read.table("catalog.schema.table")                                       │
+│  ✓ Best security (fine-grained access)                                         │
+│  ✓ Governance built-in                                                          │
+│  ✓ Modern best practice                                                         │
+│                                                                                 │
+└────────────────────────────────────────────────────────────────────────────────┘
+```
+
+### 9.8 Delta Lake Introduction
+
+**What is Delta Lake?**
+
+Delta Lake is an open-source storage layer that brings reliability to data lakes. Think of it as upgrading from a basic filing cabinet to a smart, versioned document management system.
+
+```
+┌────────────────────────────────────────────────────────────────────────────────┐
+│                    DELTA LAKE BENEFITS                                          │
+├────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                 │
+│   Regular Parquet Files              Delta Lake                                 │
+│   ─────────────────────              ──────────                                │
+│                                                                                 │
+│   ┌─────────────────┐               ┌─────────────────┐                        │
+│   │  file1.parquet  │               │  Delta Table    │                        │
+│   │  file2.parquet  │               │  ┌───────────┐  │                        │
+│   │  file3.parquet  │               │  │Transaction│  │ ← ACID transactions   │
+│   └─────────────────┘               │  │   Log     │  │                        │
+│                                     │  └───────────┘  │                        │
+│   ✗ No transactions                 │  ┌───────────┐  │                        │
+│   ✗ No versioning                   │  │ Versions  │  │ ← Time travel         │
+│   ✗ Inconsistent reads              │  │ v1,v2,v3  │  │                        │
+│   ✗ No schema enforcement           │  └───────────┘  │                        │
+│                                     │  ┌───────────┐  │                        │
+│                                     │  │  Schema   │  │ ← Schema enforcement  │
+│                                     │  │Validation │  │                        │
+│                                     │  └───────────┘  │                        │
+│                                     └─────────────────┘                        │
+│                                                                                 │
+└────────────────────────────────────────────────────────────────────────────────┘
+```
+
+**Delta Lake Operations:**
+
+```python
+# Create a Delta table
+# ─────────────────────────────────────────────────────────────────────────────
+
+df.write.format("delta").mode("overwrite").save("/mnt/bronze/customers_delta")
+
+# Read Delta table
+df_delta = spark.read.format("delta").load("/mnt/bronze/customers_delta")
+
+# Create managed Delta table
+df.write.format("delta").saveAsTable("bronze.customers")
+```
+
+```python
+# MERGE operation (Upsert)
+# ─────────────────────────────────────────────────────────────────────────────
+
+from delta.tables import DeltaTable
+
+# Load existing Delta table
+delta_table = DeltaTable.forPath(spark, "/mnt/silver/customers")
+
+# New/updated data
+updates_df = spark.read.parquet("/mnt/bronze/customers_updates")
+
+# Perform MERGE (upsert)
+delta_table.alias("target").merge(
+    updates_df.alias("source"),
+    "target.customer_id = source.customer_id"
+).whenMatchedUpdateAll() \
+ .whenNotMatchedInsertAll() \
+ .execute()
+```
+
+```python
+# Time Travel
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Read previous version
+df_v1 = spark.read.format("delta").option("versionAsOf", 1).load("/path/to/delta")
+
+# Read data as of timestamp
+df_yesterday = spark.read.format("delta") \
+    .option("timestampAsOf", "2024-01-14") \
+    .load("/path/to/delta")
+
+# View history
+from delta.tables import DeltaTable
+delta_table = DeltaTable.forPath(spark, "/path/to/delta")
+display(delta_table.history())
+```
+
+### 9.9 Databricks Widgets (Parameters)
+
+**Widgets allow you to add parameters to notebooks:**
+
+```python
+# Create widgets
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Text input
+dbutils.widgets.text("start_date", "2024-01-01", "Start Date")
+
+# Dropdown
+dbutils.widgets.dropdown("environment", "dev", ["dev", "staging", "prod"], "Environment")
+
+# Combobox (dropdown + text)
+dbutils.widgets.combobox("table_name", "customers", ["customers", "products", "orders"], "Table")
+
+# Multiselect
+dbutils.widgets.multiselect("columns", "id", ["id", "name", "email", "phone"], "Columns")
+
+# Get widget values
+start_date = dbutils.widgets.get("start_date")
+environment = dbutils.widgets.get("environment")
+
+print(f"Processing {environment} data from {start_date}")
+
+# Remove widgets
+dbutils.widgets.remove("start_date")
+dbutils.widgets.removeAll()
+```
+
+### 9.10 Databricks Utilities (dbutils)
+
+```python
+# File System Utilities
+# ─────────────────────────────────────────────────────────────────────────────
+dbutils.fs.ls("/path")                    # List files
+dbutils.fs.mkdirs("/path")                # Create directory
+dbutils.fs.cp("/src", "/dst")             # Copy
+dbutils.fs.mv("/src", "/dst")             # Move
+dbutils.fs.rm("/path", recurse=True)      # Remove
+dbutils.fs.head("/path/file.txt", 100)    # Read first 100 bytes
+
+# Secrets Utilities
+# ─────────────────────────────────────────────────────────────────────────────
+dbutils.secrets.listScopes()                           # List secret scopes
+dbutils.secrets.list("my-scope")                       # List secrets in scope
+password = dbutils.secrets.get("my-scope", "db-pass")  # Get secret value
+
+# Notebook Utilities
+# ─────────────────────────────────────────────────────────────────────────────
+dbutils.notebook.run("/path/to/notebook", 60, {"param": "value"})  # Run notebook
+dbutils.notebook.exit("Success")                                    # Exit with value
+
+# Widget Utilities
+# ─────────────────────────────────────────────────────────────────────────────
+dbutils.widgets.text("name", "default")    # Create widget
+dbutils.widgets.get("name")                # Get value
+dbutils.widgets.removeAll()                # Clear all
+```
