@@ -1028,3 +1028,551 @@ END;
     }
 }
 ```
+
+---
+
+## 7. Looping Pipelines
+
+### 7.1 Why Loop in Pipelines?
+
+**Simple Explanation:** Imagine you need to copy data from 50 different tables. Without looping, you'd create 50 separate copy activities. With looping, you create ONE copy activity and run it 50 times with different parameters.
+
+```
+┌────────────────────────────────────────────────────────────────────────────────┐
+│                    WITHOUT LOOPING vs WITH LOOPING                              │
+├────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                 │
+│  WITHOUT LOOPING (50 tables = 50 activities):                                  │
+│  ──────────────────────────────────────────────                                │
+│  ┌────────┐ ┌────────┐ ┌────────┐       ┌────────┐                            │
+│  │ Copy   │ │ Copy   │ │ Copy   │  ...  │ Copy   │                            │
+│  │ Table1 │ │ Table2 │ │ Table3 │       │Table50 │                            │
+│  └────────┘ └────────┘ └────────┘       └────────┘                            │
+│  Problem: Hard to maintain, duplicate logic                                     │
+│                                                                                 │
+│  WITH LOOPING (50 tables = 1 ForEach activity):                                │
+│  ───────────────────────────────────────────────                               │
+│  ┌─────────────────────────────────────────────┐                               │
+│  │  ForEach (items: [Table1, Table2, ... ])    │                               │
+│  │  ┌────────────────────────────────────────┐ │                               │
+│  │  │  Copy @{item().tableName}              │ │  ← Runs 50 times             │
+│  │  └────────────────────────────────────────┘ │                               │
+│  └─────────────────────────────────────────────┘                               │
+│  Benefit: Single source of truth, easy maintenance                              │
+│                                                                                 │
+└────────────────────────────────────────────────────────────────────────────────┘
+```
+
+### 7.2 ForEach Activity Deep Dive
+
+**Key Properties:**
+
+| Property | Description | Example |
+|----------|-------------|---------|
+| `items` | Array to iterate over | `["Customer", "Product", "Order"]` |
+| `isSequential` | Run items one by one or in parallel | `false` (parallel) |
+| `batchCount` | Max parallel executions (1-50) | `20` |
+| `activities` | What to do for each item | Copy, Execute Pipeline, etc. |
+
+```
+┌────────────────────────────────────────────────────────────────────────────────┐
+│                    FOREACH EXECUTION MODES                                      │
+├────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                 │
+│  SEQUENTIAL (isSequential = true):                                             │
+│  ─────────────────────────────────                                             │
+│  Item 1 ────▶ Item 2 ────▶ Item 3 ────▶ Item 4 ────▶ Done                     │
+│  (5 min)      (5 min)      (5 min)      (5 min)      Total: 20 min            │
+│                                                                                 │
+│  PARALLEL (isSequential = false, batchCount = 4):                              │
+│  ────────────────────────────────────────────────                              │
+│  Item 1 ─┐                                                                      │
+│  Item 2 ─┼────▶ All complete ────▶ Done                                        │
+│  Item 3 ─┤      (5 min)            Total: 5 min                                │
+│  Item 4 ─┘                                                                      │
+│                                                                                 │
+│  Speedup: 4x faster with parallel execution!                                   │
+│                                                                                 │
+└────────────────────────────────────────────────────────────────────────────────┘
+```
+
+### 7.3 Building a Looping Pipeline
+
+**Step 1: Create Metadata Table**
+
+```sql
+-- Table to store list of tables to process
+CREATE TABLE config.TableMetadata (
+    TableId INT PRIMARY KEY IDENTITY(1,1),
+    SchemaName NVARCHAR(50),
+    TableName NVARCHAR(100),
+    WatermarkColumn NVARCHAR(50),
+    IsActive BIT DEFAULT 1,
+    LoadOrder INT
+);
+
+-- Insert tables to process
+INSERT INTO config.TableMetadata (SchemaName, TableName, WatermarkColumn, LoadOrder)
+VALUES
+    ('SalesLT', 'Customer', 'ModifiedDate', 1),
+    ('SalesLT', 'Product', 'ModifiedDate', 2),
+    ('SalesLT', 'SalesOrder', 'ModifiedDate', 3),
+    ('SalesLT', 'OrderDetail', 'ModifiedDate', 4),
+    ('SalesLT', 'Category', 'ModifiedDate', 5);
+```
+
+**Step 2: Lookup + ForEach Pipeline**
+
+```
+┌────────────────────────────────────────────────────────────────────────────────┐
+│                    METADATA-DRIVEN LOOPING PIPELINE                             │
+├────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                 │
+│   ┌─────────────┐      ┌─────────────────────────────────────────────────────┐ │
+│   │   Lookup    │─────▶│              ForEach                                │ │
+│   │   (Get all  │      │  ┌─────────────────────────────────────────────┐   │ │
+│   │   tables)   │      │  │  Execute Pipeline: pl_incremental_load      │   │ │
+│   └─────────────┘      │  │  Parameters:                                │   │ │
+│         │              │  │    schema_name: @{item().SchemaName}        │   │ │
+│         ▼              │  │    table_name:  @{item().TableName}         │   │ │
+│   Returns array:       │  └─────────────────────────────────────────────┘   │ │
+│   [                    └─────────────────────────────────────────────────────┘ │
+│     {SchemaName:                                                                │
+│      "SalesLT",                                                                 │
+│      TableName:                                                                 │
+│      "Customer"},                                                               │
+│     {...},                                                                      │
+│     {...}                                                                       │
+│   ]                                                                             │
+└────────────────────────────────────────────────────────────────────────────────┘
+```
+
+**Complete Pipeline JSON:**
+
+```json
+{
+    "name": "pl_master_ingestion",
+    "properties": {
+        "activities": [
+            {
+                "name": "Lookup_TableList",
+                "type": "Lookup",
+                "typeProperties": {
+                    "source": {
+                        "type": "AzureSqlSource",
+                        "sqlReaderQuery": "SELECT SchemaName, TableName, WatermarkColumn FROM config.TableMetadata WHERE IsActive = 1 ORDER BY LoadOrder"
+                    },
+                    "dataset": {"referenceName": "ds_sql_generic", "type": "DatasetReference"},
+                    "firstRowOnly": false
+                }
+            },
+            {
+                "name": "ForEach_Table",
+                "type": "ForEach",
+                "dependsOn": [{"activity": "Lookup_TableList", "dependencyConditions": ["Succeeded"]}],
+                "typeProperties": {
+                    "items": {
+                        "value": "@activity('Lookup_TableList').output.value",
+                        "type": "Expression"
+                    },
+                    "isSequential": false,
+                    "batchCount": 10,
+                    "activities": [
+                        {
+                            "name": "Execute_IncrementalPipeline",
+                            "type": "ExecutePipeline",
+                            "typeProperties": {
+                                "pipeline": {
+                                    "referenceName": "pl_incremental_load",
+                                    "type": "PipelineReference"
+                                },
+                                "parameters": {
+                                    "schema_name": "@{item().SchemaName}",
+                                    "table_name": "@{item().TableName}"
+                                },
+                                "waitOnCompletion": true
+                            }
+                        }
+                    ]
+                }
+            }
+        ]
+    }
+}
+```
+
+### 7.4 Nested Loops and Complex Patterns
+
+**Scenario:** Load data from multiple source systems, each with multiple tables
+
+```
+┌────────────────────────────────────────────────────────────────────────────────┐
+│                    NESTED FOREACH PATTERN                                       │
+├────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                 │
+│   ┌───────────────────────────────────────────────────────────────────────┐   │
+│   │  ForEach SOURCE (Systems: [ERP, CRM, HR])                             │   │
+│   │  ┌───────────────────────────────────────────────────────────────┐   │   │
+│   │  │  ForEach TABLE (Tables from each source)                      │   │   │
+│   │  │  ┌─────────────────────────────────────────────────────────┐ │   │   │
+│   │  │  │  Copy Data Activity                                     │ │   │   │
+│   │  │  │  Source: @{item().SourceSystem}.@{item().TableName}     │ │   │   │
+│   │  │  └─────────────────────────────────────────────────────────┘ │   │   │
+│   │  └───────────────────────────────────────────────────────────────┘   │   │
+│   └───────────────────────────────────────────────────────────────────────┘   │
+│                                                                                 │
+└────────────────────────────────────────────────────────────────────────────────┘
+```
+
+### 7.5 Error Handling in Loops
+
+```json
+{
+    "name": "ForEach_WithErrorHandling",
+    "type": "ForEach",
+    "typeProperties": {
+        "items": "@activity('Lookup').output.value",
+        "activities": [
+            {
+                "name": "TryLoad",
+                "type": "ExecutePipeline",
+                "typeProperties": {
+                    "pipeline": {"referenceName": "pl_load_table", "type": "PipelineReference"}
+                }
+            },
+            {
+                "name": "LogError",
+                "type": "SqlServerStoredProcedure",
+                "dependsOn": [
+                    {"activity": "TryLoad", "dependencyConditions": ["Failed"]}
+                ],
+                "typeProperties": {
+                    "storedProcedureName": "usp_LogError",
+                    "storedProcedureParameters": {
+                        "TableName": {"value": "@{item().TableName}"},
+                        "ErrorMessage": {"value": "@{activity('TryLoad').error.message}"}
+                    }
+                }
+            }
+        ]
+    }
+}
+```
+
+---
+
+## 8. Logic Apps with Azure Data Factory
+
+### 8.1 What are Logic Apps?
+
+**Simple Explanation:** Logic Apps is like IFTTT or Zapier for the cloud. It connects different services and automates workflows with a visual designer. Think of it as: "When THIS happens, do THAT."
+
+```
+┌────────────────────────────────────────────────────────────────────────────────┐
+│                    LOGIC APPS OVERVIEW                                          │
+├────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                 │
+│  Common Use Cases with ADF:                                                     │
+│  ─────────────────────────────                                                  │
+│  ┌────────────┐        ┌─────────────┐        ┌────────────┐                   │
+│  │ ADF        │───────▶│ Logic App   │───────▶│ Send Email │                   │
+│  │ Pipeline   │ Trigger│             │ Action │ Notification│                  │
+│  │ Completes  │        │             │        │            │                   │
+│  └────────────┘        └─────────────┘        └────────────┘                   │
+│                                                                                 │
+│  ┌────────────┐        ┌─────────────┐        ┌────────────┐                   │
+│  │ ADF        │───────▶│ Logic App   │───────▶│ Post to    │                   │
+│  │ Pipeline   │        │             │        │ Slack/Teams│                   │
+│  │ Fails      │        │             │        │            │                   │
+│  └────────────┘        └─────────────┘        └────────────┘                   │
+│                                                                                 │
+│  ┌────────────┐        ┌─────────────┐        ┌────────────┐                   │
+│  │ New File   │───────▶│ Logic App   │───────▶│ Trigger    │                   │
+│  │ Arrives    │        │             │        │ ADF Pipeline│                  │
+│  └────────────┘        └─────────────┘        └────────────┘                   │
+│                                                                                 │
+└────────────────────────────────────────────────────────────────────────────────┘
+```
+
+### 8.2 Creating a Logic App for Pipeline Notifications
+
+**Architecture:**
+
+```
+┌────────────────────────────────────────────────────────────────────────────────┐
+│                    NOTIFICATION SYSTEM ARCHITECTURE                             │
+├────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                 │
+│   ┌───────────────┐                                                             │
+│   │  ADF Pipeline │                                                             │
+│   │  Completes    │                                                             │
+│   └───────┬───────┘                                                             │
+│           │                                                                     │
+│           ▼                                                                     │
+│   ┌───────────────┐      ┌───────────────┐      ┌───────────────┐             │
+│   │  Web Activity │─────▶│  Logic App    │─────▶│  Send Email   │             │
+│   │  (HTTP POST)  │      │  (Triggered)  │      │  via Outlook  │             │
+│   └───────────────┘      └───────────────┘      └───────────────┘             │
+│                                │                                                │
+│                                ├─────────────────▶ Post to Teams               │
+│                                │                                                │
+│                                └─────────────────▶ Log to Database             │
+│                                                                                 │
+└────────────────────────────────────────────────────────────────────────────────┘
+```
+
+**Step 1: Create Logic App via Azure CLI**
+
+```bash
+# Create Logic App
+az logic workflow create \
+    --name "la-adf-notifications" \
+    --resource-group "data-eng-rg" \
+    --location "eastus" \
+    --definition @logic-app-definition.json
+```
+
+**Step 2: Logic App Definition (Trigger: HTTP Request)**
+
+```json
+{
+    "definition": {
+        "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+        "triggers": {
+            "manual": {
+                "type": "Request",
+                "kind": "Http",
+                "inputs": {
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "pipelineName": {"type": "string"},
+                            "status": {"type": "string"},
+                            "runId": {"type": "string"},
+                            "message": {"type": "string"},
+                            "triggerTime": {"type": "string"}
+                        }
+                    }
+                }
+            }
+        },
+        "actions": {
+            "Condition_CheckStatus": {
+                "type": "If",
+                "expression": {
+                    "and": [
+                        {"equals": ["@triggerBody()?['status']", "Failed"]}
+                    ]
+                },
+                "actions": {
+                    "Send_FailureEmail": {
+                        "type": "ApiConnection",
+                        "inputs": {
+                            "host": {"connection": {"name": "@parameters('$connections')['outlook']['connectionId']"}},
+                            "method": "post",
+                            "path": "/v2/Mail",
+                            "body": {
+                                "To": "data-team@company.com",
+                                "Subject": "ADF Pipeline FAILED: @{triggerBody()?['pipelineName']}",
+                                "Body": "<h2>Pipeline Failure Alert</h2><p><b>Pipeline:</b> @{triggerBody()?['pipelineName']}</p><p><b>Run ID:</b> @{triggerBody()?['runId']}</p><p><b>Error:</b> @{triggerBody()?['message']}</p>"
+                            }
+                        }
+                    }
+                },
+                "else": {
+                    "actions": {
+                        "Send_SuccessEmail": {
+                            "type": "ApiConnection",
+                            "inputs": {
+                                "host": {"connection": {"name": "@parameters('$connections')['outlook']['connectionId']"}},
+                                "method": "post",
+                                "path": "/v2/Mail",
+                                "body": {
+                                    "To": "data-team@company.com",
+                                    "Subject": "ADF Pipeline SUCCESS: @{triggerBody()?['pipelineName']}",
+                                    "Body": "<h2>Pipeline Completed Successfully</h2><p><b>Pipeline:</b> @{triggerBody()?['pipelineName']}</p>"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+```
+
+### 8.3 Calling Logic App from ADF Pipeline
+
+**Web Activity Configuration:**
+
+```json
+{
+    "name": "Notify_PipelineStatus",
+    "type": "WebActivity",
+    "dependsOn": [
+        {"activity": "MainProcessing", "dependencyConditions": ["Succeeded"]}
+    ],
+    "typeProperties": {
+        "url": "https://prod-xx.eastus.logic.azure.com/workflows/xxxx/triggers/manual/paths/invoke?api-version=2016-10-01&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=xxxxx",
+        "method": "POST",
+        "headers": {
+            "Content-Type": "application/json"
+        },
+        "body": {
+            "value": "@json(concat('{\"pipelineName\":\"', pipeline().Pipeline, '\",\"status\":\"Succeeded\",\"runId\":\"', pipeline().RunId, '\",\"message\":\"Pipeline completed successfully\",\"triggerTime\":\"', pipeline().TriggerTime, '\"}'))",
+            "type": "Expression"
+        }
+    }
+}
+```
+
+### 8.4 Error Notification Pattern
+
+```
+┌────────────────────────────────────────────────────────────────────────────────┐
+│                    ERROR NOTIFICATION PIPELINE PATTERN                          │
+├────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                 │
+│   ┌─────────────────────────────────────────────────────────────────────────┐ │
+│   │                        Main Pipeline                                     │ │
+│   │   ┌─────────┐      ┌─────────┐      ┌─────────┐                         │ │
+│   │   │ Step 1  │─────▶│ Step 2  │─────▶│ Step 3  │                         │ │
+│   │   └─────────┘      └─────────┘      └─────────┘                         │ │
+│   │        │                │                │                               │ │
+│   │        │ On Failure     │ On Failure     │ On Failure                   │ │
+│   │        ▼                ▼                ▼                               │ │
+│   │   ┌───────────────────────────────────────────────────────────────────┐ │ │
+│   │   │              Error Handler (Web Activity → Logic App)             │ │ │
+│   │   └───────────────────────────────────────────────────────────────────┘ │ │
+│   │                                                                         │ │
+│   └─────────────────────────────────────────────────────────────────────────┘ │
+│                                                                                 │
+└────────────────────────────────────────────────────────────────────────────────┘
+```
+
+**ADF Pipeline with Error Handling:**
+
+```json
+{
+    "name": "pl_with_notifications",
+    "properties": {
+        "activities": [
+            {
+                "name": "MainProcessing",
+                "type": "ExecutePipeline",
+                "typeProperties": {
+                    "pipeline": {"referenceName": "pl_main_etl", "type": "PipelineReference"}
+                }
+            },
+            {
+                "name": "NotifySuccess",
+                "type": "WebActivity",
+                "dependsOn": [{"activity": "MainProcessing", "dependencyConditions": ["Succeeded"]}],
+                "typeProperties": {
+                    "url": "@pipeline().parameters.logicAppUrl",
+                    "method": "POST",
+                    "body": {
+                        "pipelineName": "@{pipeline().Pipeline}",
+                        "status": "Succeeded",
+                        "runId": "@{pipeline().RunId}"
+                    }
+                }
+            },
+            {
+                "name": "NotifyFailure",
+                "type": "WebActivity",
+                "dependsOn": [{"activity": "MainProcessing", "dependencyConditions": ["Failed"]}],
+                "typeProperties": {
+                    "url": "@pipeline().parameters.logicAppUrl",
+                    "method": "POST",
+                    "body": {
+                        "pipelineName": "@{pipeline().Pipeline}",
+                        "status": "Failed",
+                        "runId": "@{pipeline().RunId}",
+                        "message": "@{activity('MainProcessing').error.message}"
+                    }
+                }
+            }
+        ]
+    }
+}
+```
+
+### 8.5 Microsoft Teams Integration
+
+**Logic App Action for Teams:**
+
+```json
+{
+    "Post_to_Teams": {
+        "type": "ApiConnection",
+        "inputs": {
+            "host": {
+                "connection": {
+                    "name": "@parameters('$connections')['teams']['connectionId']"
+                }
+            },
+            "method": "post",
+            "path": "/v3/beta/teams/@{encodeURIComponent('team-id')}/channels/@{encodeURIComponent('channel-id')}/messages",
+            "body": {
+                "body": {
+                    "contentType": "html",
+                    "content": "<h3>Pipeline Status Update</h3><table><tr><td><b>Pipeline:</b></td><td>@{triggerBody()?['pipelineName']}</td></tr><tr><td><b>Status:</b></td><td style='color: @{if(equals(triggerBody()?['status'], 'Failed'), 'red', 'green')}'>@{triggerBody()?['status']}</td></tr><tr><td><b>Time:</b></td><td>@{triggerBody()?['triggerTime']}</td></tr></table>"
+                }
+            }
+        }
+    }
+}
+```
+
+### 8.6 Scheduled Pipeline Trigger via Logic App
+
+**Use Case:** Trigger ADF pipeline on a complex schedule (e.g., only on business days)
+
+```
+┌────────────────────────────────────────────────────────────────────────────────┐
+│                    LOGIC APP TRIGGERED PIPELINE                                 │
+├────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                 │
+│   ┌─────────────────┐                                                          │
+│   │  Recurrence     │  ← Every day at 6 AM                                     │
+│   │  Trigger        │                                                          │
+│   └────────┬────────┘                                                          │
+│            │                                                                    │
+│            ▼                                                                    │
+│   ┌─────────────────┐                                                          │
+│   │  Condition:     │  ← Is it a business day?                                 │
+│   │  dayOfWeek()    │    (Monday-Friday, not holiday)                          │
+│   │  not in [0,6]   │                                                          │
+│   └────────┬────────┘                                                          │
+│            │ Yes                                                                │
+│            ▼                                                                    │
+│   ┌─────────────────┐                                                          │
+│   │  HTTP Action    │  ← Call ADF REST API                                     │
+│   │  POST: Create   │    to trigger pipeline                                   │
+│   │  Pipeline Run   │                                                          │
+│   └─────────────────┘                                                          │
+│                                                                                 │
+└────────────────────────────────────────────────────────────────────────────────┘
+```
+
+**HTTP Action to Trigger ADF Pipeline:**
+
+```json
+{
+    "TriggerADFPipeline": {
+        "type": "Http",
+        "inputs": {
+            "method": "POST",
+            "uri": "https://management.azure.com/subscriptions/{subscription-id}/resourceGroups/{rg}/providers/Microsoft.DataFactory/factories/{factory-name}/pipelines/{pipeline-name}/createRun?api-version=2018-06-01",
+            "authentication": {
+                "type": "ManagedServiceIdentity"
+            },
+            "body": {
+                "param1": "value1"
+            }
+        }
+    }
+}
+```
