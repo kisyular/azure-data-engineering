@@ -2627,4 +2627,575 @@ df_bad.writeStream.toTable("bronze.sales_errors")
 │     └── Debug before running continuous                                        │
 │                                                                                 │
 └────────────────────────────────────────────────────────────────────────────────┘
+
+---
+
+## 12. PySpark Transformations & APIs
+
+### 12.1 Understanding PySpark
+
+**Simple Explanation:** PySpark is Python's way of talking to Spark. It lets you write Python code that gets executed across many machines in parallel. Think of it as writing instructions that 100 workers follow simultaneously.
+
+```
+┌────────────────────────────────────────────────────────────────────────────────┐
+│                    PYSPARK DATA STRUCTURES                                      │
+├────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                 │
+│   RDD (Resilient Distributed Dataset)                                          │
+│   ───────────────────────────────────                                          │
+│   • Low-level API (rarely used directly)                                       │
+│   • Unstructured data                                                           │
+│   • Full control, but verbose                                                   │
+│                                                                                 │
+│   DataFrame (Most Common)                                                       │
+│   ───────────────────────                                                       │
+│   • High-level API (like pandas)                                               │
+│   • Structured data with schema                                                 │
+│   • Optimized by Catalyst optimizer                                            │
+│   • ✓ USE THIS FOR MOST TASKS                                                  │
+│                                                                                 │
+│   Dataset (Scala/Java only)                                                     │
+│   ─────────────────────────                                                     │
+│   • Typed DataFrame                                                             │
+│   • Compile-time type safety                                                    │
+│                                                                                 │
+└────────────────────────────────────────────────────────────────────────────────┘
+```
+
+### 12.2 Creating DataFrames
+
+```python
+# Method 1: From Python list
+# ─────────────────────────────────────────────────────────────────────────────
+data = [
+    (1, "John", "Engineering", 75000),
+    (2, "Jane", "Marketing", 65000),
+    (3, "Bob", "Engineering", 80000)
+]
+columns = ["id", "name", "department", "salary"]
+
+df = spark.createDataFrame(data, columns)
+display(df)
+
+# Method 2: From pandas DataFrame
+# ─────────────────────────────────────────────────────────────────────────────
+import pandas as pd
+
+pandas_df = pd.DataFrame({
+    "id": [1, 2, 3],
+    "name": ["John", "Jane", "Bob"]
+})
+
+df = spark.createDataFrame(pandas_df)
+
+# Method 3: From files
+# ─────────────────────────────────────────────────────────────────────────────
+df_parquet = spark.read.parquet("/path/to/data.parquet")
+df_csv = spark.read.option("header", "true").csv("/path/to/data.csv")
+df_json = spark.read.json("/path/to/data.json")
+df_delta = spark.read.format("delta").load("/path/to/delta")
+
+# Method 4: From table
+# ─────────────────────────────────────────────────────────────────────────────
+df = spark.table("catalog.schema.table_name")
+```
+
+### 12.3 Essential DataFrame Operations
+
+```python
+from pyspark.sql.functions import *
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# SELECTION & FILTERING
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# Select columns
+df.select("name", "salary")
+df.select(col("name"), col("salary"))
+df.select(df.name, df.salary)
+
+# Select with expressions
+df.select(
+    col("name"),
+    col("salary"),
+    (col("salary") * 1.1).alias("salary_with_raise")
+)
+
+# Filter rows
+df.filter(col("salary") > 70000)
+df.filter("salary > 70000")  # SQL string
+df.where(col("department") == "Engineering")
+
+# Multiple conditions
+df.filter((col("salary") > 70000) & (col("department") == "Engineering"))
+df.filter((col("salary") > 70000) | (col("department") == "Marketing"))
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# ADDING & MODIFYING COLUMNS
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# Add new column
+df.withColumn("bonus", col("salary") * 0.1)
+
+# Rename column
+df.withColumnRenamed("salary", "annual_salary")
+
+# Multiple columns at once
+df.withColumns({
+    "bonus": col("salary") * 0.1,
+    "tax": col("salary") * 0.2,
+    "net_salary": col("salary") - (col("salary") * 0.2)
+})
+
+# Drop columns
+df.drop("bonus", "tax")
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# SORTING & LIMITING
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# Sort ascending
+df.orderBy("salary")
+df.orderBy(col("salary").asc())
+
+# Sort descending
+df.orderBy(col("salary").desc())
+
+# Multiple sort columns
+df.orderBy(col("department").asc(), col("salary").desc())
+
+# Limit rows
+df.limit(10)
+
+# Get distinct values
+df.select("department").distinct()
+df.dropDuplicates(["department"])
+```
+
+### 12.4 Aggregations
+
+```python
+from pyspark.sql.functions import *
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# BASIC AGGREGATIONS
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# Simple aggregations
+df.agg(
+    count("*").alias("total_rows"),
+    sum("salary").alias("total_salary"),
+    avg("salary").alias("avg_salary"),
+    min("salary").alias("min_salary"),
+    max("salary").alias("max_salary")
+)
+
+# Group by and aggregate
+df.groupBy("department").agg(
+    count("*").alias("employee_count"),
+    sum("salary").alias("total_salary"),
+    avg("salary").alias("avg_salary"),
+    round(avg("salary"), 2).alias("avg_salary_rounded")
+)
+
+# Multiple grouping columns
+df.groupBy("department", "job_title").agg(
+    count("*").alias("count"),
+    sum("salary").alias("total_salary")
+)
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# WINDOW FUNCTIONS
+# ═══════════════════════════════════════════════════════════════════════════════
+
+from pyspark.sql.window import Window
+
+# Define window specification
+window_spec = Window.partitionBy("department").orderBy(col("salary").desc())
+
+# Ranking functions
+df.withColumn("rank", rank().over(window_spec)) \
+  .withColumn("dense_rank", dense_rank().over(window_spec)) \
+  .withColumn("row_number", row_number().over(window_spec))
+
+# Running totals
+window_running = Window.partitionBy("department").orderBy("hire_date").rowsBetween(Window.unboundedPreceding, Window.currentRow)
+
+df.withColumn("running_salary_total", sum("salary").over(window_running))
+
+# Lead and Lag
+df.withColumn("prev_salary", lag("salary", 1).over(window_spec)) \
+  .withColumn("next_salary", lead("salary", 1).over(window_spec))
+```
+
+### 12.5 Joins
+
+```python
+# ═══════════════════════════════════════════════════════════════════════════════
+# JOIN TYPES
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# Sample DataFrames
+employees = spark.createDataFrame([
+    (1, "John", 101),
+    (2, "Jane", 102),
+    (3, "Bob", None)
+], ["emp_id", "name", "dept_id"])
+
+departments = spark.createDataFrame([
+    (101, "Engineering"),
+    (102, "Marketing"),
+    (103, "Sales")
+], ["dept_id", "dept_name"])
+
+# Inner Join (only matching rows)
+employees.join(departments, employees.dept_id == departments.dept_id, "inner")
+
+# Left Join (all from left, matching from right)
+employees.join(departments, employees.dept_id == departments.dept_id, "left")
+
+# Right Join (all from right, matching from left)
+employees.join(departments, employees.dept_id == departments.dept_id, "right")
+
+# Full Outer Join (all from both)
+employees.join(departments, employees.dept_id == departments.dept_id, "full")
+
+# Left Anti Join (left rows with no match)
+employees.join(departments, employees.dept_id == departments.dept_id, "left_anti")
+
+# Left Semi Join (left rows with match, no right columns)
+employees.join(departments, employees.dept_id == departments.dept_id, "left_semi")
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# JOIN BEST PRACTICES
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# Avoid duplicate column names
+result = employees.alias("e").join(
+    departments.alias("d"),
+    col("e.dept_id") == col("d.dept_id"),
+    "left"
+).select(
+    col("e.emp_id"),
+    col("e.name"),
+    col("d.dept_name")
+)
+
+# Broadcast small tables for performance
+from pyspark.sql.functions import broadcast
+
+# If departments is small (< 10MB), broadcast it
+result = employees.join(broadcast(departments), "dept_id", "left")
+```
+
+### 12.6 String Functions
+
+```python
+from pyspark.sql.functions import *
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# STRING MANIPULATION
+# ═══════════════════════════════════════════════════════════════════════════════
+
+df = spark.createDataFrame([
+    ("  John Doe  ", "john.doe@email.com"),
+    ("Jane Smith", "JANE.SMITH@EMAIL.COM")
+], ["name", "email"])
+
+df.select(
+    # Case conversion
+    upper(col("name")).alias("upper_name"),
+    lower(col("email")).alias("lower_email"),
+    initcap(col("name")).alias("title_case"),
+
+    # Trimming
+    trim(col("name")).alias("trimmed"),
+    ltrim(col("name")).alias("left_trimmed"),
+    rtrim(col("name")).alias("right_trimmed"),
+
+    # Substring
+    substring(col("name"), 1, 4).alias("first_4_chars"),
+
+    # String length
+    length(col("name")).alias("name_length"),
+
+    # Replace
+    regexp_replace(col("name"), " ", "_").alias("name_underscored"),
+
+    # Split
+    split(col("email"), "@").alias("email_parts"),
+    split(col("email"), "@")[0].alias("email_username"),
+
+    # Concatenation
+    concat(col("name"), lit(" - "), col("email")).alias("combined"),
+    concat_ws(" | ", col("name"), col("email")).alias("combined_sep")
+)
+```
+
+### 12.7 Date and Time Functions
+
+```python
+from pyspark.sql.functions import *
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# DATE/TIME OPERATIONS
+# ═══════════════════════════════════════════════════════════════════════════════
+
+df = spark.createDataFrame([
+    ("2024-01-15", "2024-01-15 10:30:45")
+], ["date_str", "timestamp_str"])
+
+df.select(
+    # Parse strings to date/timestamp
+    to_date(col("date_str"), "yyyy-MM-dd").alias("date"),
+    to_timestamp(col("timestamp_str"), "yyyy-MM-dd HH:mm:ss").alias("timestamp"),
+
+    # Current date/time
+    current_date().alias("today"),
+    current_timestamp().alias("now"),
+
+    # Extract components
+    year(col("date_str")).alias("year"),
+    month(col("date_str")).alias("month"),
+    dayofmonth(col("date_str")).alias("day"),
+    dayofweek(col("date_str")).alias("day_of_week"),
+    weekofyear(col("date_str")).alias("week"),
+    quarter(col("date_str")).alias("quarter"),
+
+    # Date arithmetic
+    date_add(col("date_str"), 7).alias("plus_7_days"),
+    date_sub(col("date_str"), 7).alias("minus_7_days"),
+    add_months(col("date_str"), 1).alias("plus_1_month"),
+
+    # Date difference
+    datediff(current_date(), col("date_str")).alias("days_since"),
+    months_between(current_date(), col("date_str")).alias("months_since"),
+
+    # Formatting
+    date_format(col("timestamp_str"), "MMMM dd, yyyy").alias("formatted_date"),
+    date_format(col("timestamp_str"), "HH:mm").alias("time_only"),
+
+    # Truncation
+    trunc(col("date_str"), "MM").alias("first_of_month"),
+    trunc(col("date_str"), "YY").alias("first_of_year")
+)
+```
+
+### 12.8 Handling Null Values
+
+```python
+from pyspark.sql.functions import *
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# NULL HANDLING
+# ═══════════════════════════════════════════════════════════════════════════════
+
+df = spark.createDataFrame([
+    (1, "John", 75000),
+    (2, None, 65000),
+    (3, "Bob", None)
+], ["id", "name", "salary"])
+
+# Filter nulls
+df.filter(col("name").isNull())
+df.filter(col("name").isNotNull())
+
+# Replace nulls
+df.fillna(0)                              # Replace all nulls with 0
+df.fillna({"name": "Unknown", "salary": 0})  # Column-specific
+df.na.fill({"name": "Unknown"})            # Alternative syntax
+
+# Drop rows with nulls
+df.dropna()                               # Drop if ANY column is null
+df.dropna(how="all")                      # Drop if ALL columns are null
+df.dropna(subset=["name", "salary"])      # Drop if specified columns are null
+
+# Coalesce - return first non-null value
+df.withColumn("name_clean", coalesce(col("name"), lit("Unknown")))
+
+# When/Otherwise for complex logic
+df.withColumn("salary_status",
+    when(col("salary").isNull(), "Missing")
+    .when(col("salary") < 50000, "Low")
+    .when(col("salary") < 80000, "Medium")
+    .otherwise("High")
+)
+```
+
+### 12.9 Complex Data Types
+
+```python
+from pyspark.sql.functions import *
+from pyspark.sql.types import *
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# ARRAYS
+# ═══════════════════════════════════════════════════════════════════════════════
+
+df = spark.createDataFrame([
+    (1, ["python", "java", "scala"]),
+    (2, ["python", "sql"])
+], ["id", "skills"])
+
+df.select(
+    col("skills"),
+    size(col("skills")).alias("num_skills"),           # Array length
+    col("skills")[0].alias("first_skill"),              # Index access
+    array_contains(col("skills"), "python").alias("knows_python"),
+    explode(col("skills")).alias("skill"),              # Flatten array
+    array_distinct(col("skills")).alias("unique_skills")
+)
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# STRUCTS (Nested Objects)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+df = spark.createDataFrame([
+    (1, {"city": "NYC", "zip": "10001"}),
+    (2, {"city": "LA", "zip": "90001"})
+], ["id", "address"])
+
+df.select(
+    col("address.city").alias("city"),
+    col("address.zip").alias("zip"),
+    col("address")["city"].alias("city_alt")
+)
+
+# Create struct
+df.select(
+    struct(col("id"), lit("USA").alias("country")).alias("info")
+)
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# MAPS (Key-Value Pairs)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+df = spark.createDataFrame([
+    (1, {"email": "john@example.com", "phone": "555-0101"})
+], ["id", "contacts"])
+
+df.select(
+    col("contacts")["email"].alias("email"),
+    map_keys(col("contacts")).alias("contact_types"),
+    map_values(col("contacts")).alias("contact_values")
+)
+```
+
+### 12.10 User Defined Functions (UDFs)
+
+```python
+from pyspark.sql.functions import udf, pandas_udf
+from pyspark.sql.types import StringType, IntegerType
+import pandas as pd
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# STANDARD UDF (Slower - serialization overhead)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# Define Python function
+def categorize_salary(salary):
+    if salary is None:
+        return "Unknown"
+    elif salary < 50000:
+        return "Low"
+    elif salary < 80000:
+        return "Medium"
+    else:
+        return "High"
+
+# Register as UDF
+categorize_salary_udf = udf(categorize_salary, StringType())
+
+# Use in DataFrame
+df.withColumn("salary_category", categorize_salary_udf(col("salary")))
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# PANDAS UDF (Faster - vectorized operations)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+@pandas_udf(StringType())
+def categorize_salary_pandas(salary: pd.Series) -> pd.Series:
+    return salary.apply(lambda x:
+        "Unknown" if pd.isna(x)
+        else "Low" if x < 50000
+        else "Medium" if x < 80000
+        else "High"
+    )
+
+# Use Pandas UDF
+df.withColumn("salary_category", categorize_salary_pandas(col("salary")))
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# REGISTER UDF FOR SQL
+# ═══════════════════════════════════════════════════════════════════════════════
+
+spark.udf.register("categorize_salary_sql", categorize_salary, StringType())
+
+# Now use in SQL
+spark.sql("""
+    SELECT name, salary, categorize_salary_sql(salary) as category
+    FROM employees
+""")
+```
+
+### 12.11 Writing Data
+
+```python
+# ═══════════════════════════════════════════════════════════════════════════════
+# WRITE MODES
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# overwrite - Replace existing data
+df.write.mode("overwrite").parquet("/path/to/output")
+
+# append - Add to existing data
+df.write.mode("append").parquet("/path/to/output")
+
+# ignore - Skip if exists
+df.write.mode("ignore").parquet("/path/to/output")
+
+# error/errorifexists - Fail if exists (default)
+df.write.mode("error").parquet("/path/to/output")
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# WRITE FORMATS
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# Parquet (recommended)
+df.write.mode("overwrite").parquet("/path/to/data")
+
+# Delta (best for data lakes)
+df.write.format("delta").mode("overwrite").save("/path/to/delta")
+
+# CSV
+df.write.mode("overwrite").option("header", "true").csv("/path/to/csv")
+
+# JSON
+df.write.mode("overwrite").json("/path/to/json")
+
+# Save as table
+df.write.mode("overwrite").saveAsTable("catalog.schema.table_name")
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# PARTITIONING
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# Partition by columns
+df.write \
+    .mode("overwrite") \
+    .partitionBy("year", "month") \
+    .parquet("/path/to/partitioned")
+
+# Output structure:
+# /path/to/partitioned/
+#   ├── year=2024/
+#   │   ├── month=01/
+#   │   │   └── part-00000.parquet
+#   │   └── month=02/
+#   │       └── part-00000.parquet
+
+# Control number of output files
+df.coalesce(1).write.parquet("/path")     # Single file (small data)
+df.repartition(10).write.parquet("/path") # 10 files
+```
 ```
