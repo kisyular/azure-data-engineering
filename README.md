@@ -6,20 +6,23 @@
 
 ## Table of Contents
 
-- [Azure Data Engineering - Complete Guide](#azure-data-engineering---complete-guide)
-  - [Table of Contents](#table-of-contents)
-  - [1. Introduction](#1-introduction)
-    - [What is Data Engineering?](#what-is-data-engineering)
-    - [Why Azure for Data Engineering?](#why-azure-for-data-engineering)
-  - [2. Project Architecture](#2-project-architecture)
-    - [High-Level Architecture Diagram](#high-level-architecture-diagram)
-    - [Medallion Architecture](#medallion-architecture)
-  - [3. Azure Fundamentals](#3-azure-fundamentals)
-    - [3.1 Creating a Free Azure Account](#31-creating-a-free-azure-account)
-    - [3.2 Azure Portal Layout](#32-azure-portal-layout)
-    - [3.3 Resource Groups Explained](#33-resource-groups-explained)
-    - [3.4 Creating Resources via Azure CLI](#34-creating-resources-via-azure-cli)
-    - [Naming Convention](#naming-convention)
+- [1. Introduction](#1-introduction)
+- [2. Project Architecture](#2-project-architecture)
+- [3. Azure Fundamentals](#3-azure-fundamentals)
+- [4. Azure Data Factory Tutorial](#4-azure-data-factory-tutorial)
+- [5. Azure SQL Database as Source](#5-azure-sql-database-as-source)
+- [6. Incremental Ingestion Pipelines](#6-incremental-ingestion-pipelines)
+- [7. Looping Pipelines](#7-looping-pipelines)
+- [8. Logic Apps with Azure Data Factory](#8-logic-apps-with-azure-data-factory)
+- [9. Azure Databricks Tutorial](#9-azure-databricks-tutorial)
+- [10. Databricks Unity Catalog](#10-databricks-unity-catalog)
+- [11. Spark Streaming with Databricks Auto Loader](#11-spark-streaming-with-databricks-auto-loader)
+- [12. PySpark Transformations & APIs](#12-pyspark-transformations--apis)
+- [13. Metadata-Driven Pipelines with Jinja2](#13-metadata-driven-pipelines-with-jinja2)
+- [14. Star Schema and Slowly Changing Dimensions (SCD)](#14-star-schema-and-slowly-changing-dimensions-scd)
+- [15. Databricks Delta Live Tables (DLT)](#15-databricks-delta-live-tables-dlt)
+- [16. Databricks Asset Bundles for CI/CD](#16-databricks-asset-bundles-for-cicd)
+- [Conclusion](#conclusion)
 
 ---
 
