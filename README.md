@@ -42,13 +42,13 @@
 
 Azure provides a complete ecosystem of tools that work together seamlessly:
 
-| Tool | Purpose | Analogy |
-|------|---------|---------|
-| Azure Data Factory | Orchestration & ETL | The conductor of an orchestra |
-| Azure SQL Database | Relational data storage | A well-organized filing cabinet |
-| Azure Databricks | Big data processing | A powerful calculator on steroids |
-| Unity Catalog | Data governance | The librarian who tracks all books |
-| Delta Live Tables | Declarative pipelines | An autopilot for data flows |
+| Tool               | Purpose                 | Analogy                            |
+| ------------------ | ----------------------- | ---------------------------------- |
+| Azure Data Factory | Orchestration & ETL     | The conductor of an orchestra      |
+| Azure SQL Database | Relational data storage | A well-organized filing cabinet    |
+| Azure Databricks   | Big data processing     | A powerful calculator on steroids  |
+| Unity Catalog      | Data governance         | The librarian who tracks all books |
+| Delta Live Tables  | Declarative pipelines   | An autopilot for data flows        |
 
 ---
 
@@ -56,9 +56,9 @@ Azure provides a complete ecosystem of tools that work together seamlessly:
 
 ### High-Level Architecture Diagram
 
-```
+```azure-data-engineering-project-structure
 ┌─────────────────────────────────────────────────────────────────────────────────┐
-│                           AZURE DATA ENGINEERING PROJECT                         │
+│                           AZURE DATA ENGINEERING PROJECT                        │
 └─────────────────────────────────────────────────────────────────────────────────┘
 
 ┌──────────────┐    ┌──────────────────┐    ┌──────────────────┐    ┌─────────────┐
@@ -79,10 +79,10 @@ Azure provides a complete ecosystem of tools that work together seamlessly:
 
 ### Medallion Architecture
 
-```
-┌─────────────────────────────────────────────────────────────────────────────────┐
-│                            MEDALLION ARCHITECTURE                               │
-│                                                                                 │
+```medallion-structure
+┌────────────────────────────────────────────────────────────────────────────────┐
+│                            MEDALLION ARCHITECTURE                              │
+│                                                                                │
 │  ┌─────────────┐      ┌─────────────┐      ┌─────────────┐      ┌───────────┐  │
 │  │             │      │             │      │             │      │           │  │
 │  │   SOURCE    │─────▶│   BRONZE    │─────▶│   SILVER    │─────▶│   GOLD    │  │
@@ -91,13 +91,13 @@ Azure provides a complete ecosystem of tools that work together seamlessly:
 │  └─────────────┘      └─────────────┘      └─────────────┘      └───────────┘  │
 │        │                    │                    │                    │        │
 │        ▼                    ▼                    ▼                    ▼        │
-│   Raw data as-is      Exact copy of       Cleaned, filtered,    Business-     │
+│   Raw data as-is      Exact copy of       Cleaned, filtered,    Business-      │
 │   from sources        source data         validated data         ready data    │
 │                       (append-only)       (deduplicated)        (aggregated)   │
-└─────────────────────────────────────────────────────────────────────────────────┘
+└────────────────────────────────────────────────────────────────────────────────┘
 ```
 
-**For Beginners - The Gold Refining Analogy:**
+**The Gold Refining Analogy:**
 
 - **Bronze (Raw Ore):** You dig up everything - dirt, rocks, and gold mixed together
 - **Silver (Refined):** You wash and filter out the obvious junk
@@ -125,11 +125,11 @@ Azure provides a complete ecosystem of tools that work together seamlessly:
 
 ### 3.2 Azure Portal Layout
 
-```
-┌─────────────────────────────────────────────────────────────────────────────────┐
-│  ┌──────────┐                              AZURE PORTAL                         │
-│  │ Search   │  ← Search for any Azure service                                   │
-│  └──────────┘                                                                   │
+```azure-portal-layout
+┌────────────────────────────────────────────────────────────────────────────────┐
+│  ┌──────────┐                              AZURE PORTAL                        │
+│  │ Search   │  ← Search for any Azure service                                  │
+│  └──────────┘                                                                  │
 │  ┌─────────────────┐  ┌────────────────────────────────────────────────────┐   │
 │  │  NAVIGATION     │  │              MAIN CONTENT AREA                     │   │
 │  │  • Home         │  │   - Resource Groups                                │   │
@@ -137,23 +137,23 @@ Azure provides a complete ecosystem of tools that work together seamlessly:
 │  │  • All Services │  │   - Databricks                                     │   │
 │  │  • Resources    │  │   - Storage Accounts                               │   │
 │  └─────────────────┘  └────────────────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────────────────────────────────────┘
+└────────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ### 3.3 Resource Groups Explained
 
 **Simple Explanation:** A Resource Group is like a folder on your computer - you put related resources together.
 
-```
+```resource-group
 ┌─────────────────────────────────────────────┐
-│        Resource Group: "data-eng-rg"        │
+│   Resource Group: "data-engineering-rg"     │
 ├─────────────────────────────────────────────┤
-│   ┌─────────────┐   ┌─────────────┐        │
-│   │ Data Factory│   │ Databricks  │        │
-│   └─────────────┘   └─────────────┘        │
-│   ┌─────────────┐   ┌─────────────┐        │
-│   │ SQL Database│   │ Storage Acct│        │
-│   └─────────────┘   └─────────────┘        │
+│   ┌─────────────┐   ┌─────────────┐         │
+│   │ Data Factory│   │ Databricks  │         │
+│   └─────────────┘   └─────────────┘         │
+│   ┌─────────────┐   ┌─────────────┐         │
+│   │ SQL Database│   │ Storage Acct│         │
+│   └─────────────┘   └─────────────┘         │
 └─────────────────────────────────────────────┘
 ```
 
@@ -165,26 +165,179 @@ az login
 
 # Create Resource Group
 az group create \
-    --name "data-eng-rg" \
+    --name "data-engineering-rg" \
     --location "eastus"
+```
 
+This will output
+
+```bash
+{
+  "id": "/subscriptions/XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX/resourceGroups/data-engineering-rg",
+  "location": "eastus",
+  "managedBy": null,
+  "name": "data-engineering-rg",
+  "properties": {
+    "provisioningState": "Succeeded"
+  },
+  "tags": null,
+  "type": "Microsoft.Resources/resourceGroups"
+}
+```
+
+```bash
 # Create Storage Account
 az storage account create \
-    --name "stdataengdev001" \
-    --resource-group "data-eng-rg" \
+    --name "sa4dataengdev001" \
+    --resource-group "data-engineering-rg" \
     --location "eastus" \
     --sku "Standard_LRS"
+```
 
+This will output
+
+```bash
+{
+  "accessTier": "Hot",
+  "accountMigrationInProgress": null,
+  "allowBlobPublicAccess": false,
+  "allowCrossTenantReplication": false,
+  "allowSharedKeyAccess": null,
+  "allowedCopyScope": null,
+  "azureFilesIdentityBasedAuthentication": null,
+  "blobRestoreStatus": null,
+  "creationTime": "2026-01-31T17:46:30.821908+00:00",
+  "customDomain": null,
+  "defaultToOAuthAuthentication": null,
+  "dnsEndpointType": null,
+  "enableExtendedGroups": null,
+  "enableHttpsTrafficOnly": true,
+  "enableNfsV3": null,
+  "encryption": {
+    "encryptionIdentity": null,
+    "keySource": "Microsoft.Storage",
+    "keyVaultProperties": null,
+    "requireInfrastructureEncryption": null,
+    "services": {
+      "blob": {
+        "enabled": true,
+        "keyType": "Account",
+        "lastEnabledTime": "2026-01-31T17:46:31.181285+00:00"
+      },
+      "file": {
+        "enabled": true,
+        "keyType": "Account",
+        "lastEnabledTime": "2026-01-31T17:46:31.181285+00:00"
+      },
+      "queue": null,
+      "table": null
+    }
+  },
+  "extendedLocation": null,
+  "failoverInProgress": null,
+  "geoReplicationStats": null,
+  "id": "/subscriptions/XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX/resourceGroups/data-engineering-rg/providers/Microsoft.Storage/storageAccounts/studentstorageacct001",
+  "identity": null,
+  "immutableStorageWithVersioning": null,
+  "isHnsEnabled": null,
+  "isLocalUserEnabled": null,
+  "isSftpEnabled": null,
+  "isSkuConversionBlocked": null,
+  "keyCreationTime": {
+    "key1": "2026-01-31T17:46:31.165665+00:00",
+    "key2": "2026-01-31T17:46:31.165665+00:00"
+  },
+  "keyPolicy": null,
+  "kind": "StorageV2",
+  "largeFileSharesState": null,
+  "lastGeoFailoverTime": null,
+  "location": "eastus",
+  "minimumTlsVersion": "TLS1_0",
+  "name": "studentstorageacct001",
+  "networkRuleSet": {
+    "bypass": "AzureServices",
+    "defaultAction": "Allow",
+    "ipRules": [],
+    "ipv6Rules": [],
+    "resourceAccessRules": null,
+    "virtualNetworkRules": []
+  },
+  "primaryEndpoints": {
+    "blob": "https://studentstorageacct001.blob.core.windows.net/",
+    "dfs": "https://studentstorageacct001.dfs.core.windows.net/",
+    "file": "https://studentstorageacct001.file.core.windows.net/",
+    "internetEndpoints": null,
+    "microsoftEndpoints": null,
+    "queue": "https://studentstorageacct001.queue.core.windows.net/",
+    "table": "https://studentstorageacct001.table.core.windows.net/",
+    "web": "https://studentstorageacct001.z13.web.core.windows.net/"
+  },
+  "primaryLocation": "eastus",
+  "privateEndpointConnections": [],
+  "provisioningState": "Succeeded",
+  "publicNetworkAccess": null,
+  "resourceGroup": "data-engineering-rg",
+  "routingPreference": null,
+  "sasPolicy": null,
+  "secondaryEndpoints": null,
+  "secondaryLocation": null,
+  "sku": {
+    "name": "Standard_LRS",
+    "tier": "Standard"
+  },
+  "statusOfPrimary": "available",
+  "statusOfSecondary": null,
+  "storageAccountSkuConversionStatus": null,
+  "tags": {},
+  "type": "Microsoft.Storage/storageAccounts"
+}
+```
+
+```bash
 # Create Data Factory
 az datafactory create \
-    --name "adf-dataeng-dev-001" \
-    --resource-group "data-eng-rg" \
+    --name "adf-4-dataeng-dev-001" \
+    --resource-group "data-engineering-rg" \
     --location "eastus"
+```
+
+This will output
+
+```bash
+{
+  "additionalProperties": null,
+  "createTime": "2026-01-31T17:51:44.433707+00:00",
+  "eTag": "\"3f021a2b-0000-0100-0000-697e41300000\"",
+  "encryption": {
+    "identity": null,
+    "keyName": null,
+    "keyVersion": null,
+    "vaultBaseUrl": null
+  },
+  "globalParameters": null,
+  "id": "/subscriptions/XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX/resourceGroups/data-engineering-rg/providers/Microsoft.DataFactory/factories/adf-student-tutorial-001",
+  "identity": {
+    "principalId": "XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX",
+    "tenantId": "YYYYYYYY-YYYY-YYYY-YYYY-YYYYYYYYYYYY",
+    "type": "SystemAssigned",
+    "userAssignedIdentities": null
+  },
+  "location": "eastus",
+  "name": "adf-student-tutorial-001",
+  "provisioningState": "Succeeded",
+  "publicNetworkAccess": null,
+  "purviewConfiguration": null,
+  "repoConfiguration": null,
+  "resourceGroup": "data-engineering-rg",
+  "tags": {},
+  "type": "Microsoft.DataFactory/factories",
+  "version": "2018-06-01"
+}
 ```
 
 ### Naming Convention
 
-```
+```naming-convention
 {resource-type}-{project}-{environment}-{region}-{instance}
 
 Examples:
@@ -204,7 +357,7 @@ Examples:
 
 **Key Concepts for Beginners:**
 
-```
+```azure-data-factory-components
 ┌─────────────────────────────────────────────────────────────────────────────────┐
 │                         AZURE DATA FACTORY COMPONENTS                           │
 ├─────────────────────────────────────────────────────────────────────────────────┤
@@ -212,7 +365,7 @@ Examples:
 │   ┌──────────────┐                                                              │
 │   │   PIPELINE   │  ← Container for activities (like a recipe)                  │
 │   │   ┌────────┐ │                                                              │
-│   │   │Activity│ │  ← Individual step/task (like an instruction in recipe)     │
+│   │   │Activity│ │  ← Individual step/task (like an instruction in recipe)      │
 │   │   └────────┘ │                                                              │
 │   └──────────────┘                                                              │
 │                                                                                 │
@@ -245,8 +398,8 @@ Examples:
 2. Click "Create"
 3. Fill in the basics:
    - **Subscription:** Your subscription
-   - **Resource Group:** data-eng-rg
-   - **Name:** adf-dataeng-dev-001
+   - **Resource Group:** data-engineering-rg
+   - **Name:** adf-4-dataeng-dev-001
    - **Region:** East US
    - **Version:** V2
 
@@ -255,21 +408,55 @@ Examples:
 ```bash
 # Create Data Factory
 az datafactory create \
-    --name "adf-dataeng-dev-001" \
-    --resource-group "data-eng-rg" \
+    --name "adf-4-dataeng-dev-001" \
+    --resource-group "data-engineering-rg" \
     --location "eastus"
 
 # Verify creation
 az datafactory show \
-    --name "adf-dataeng-dev-001" \
-    --resource-group "data-eng-rg"
+    --name "adf-4-dataeng-dev-001" \
+    --resource-group "data-engineering-rg"
+```
+
+When you run the verification code `az datafactory show` it should output
+
+```bash
+{
+  "additionalProperties": null,
+  "createTime": "2026-01-31T17:51:44.433707+00:00",
+  "eTag": "\"3f021a2b-0000-0100-0000-697e41300000\"",
+  "encryption": {
+    "identity": null,
+    "keyName": null,
+    "keyVersion": null,
+    "vaultBaseUrl": null
+  },
+  "globalParameters": null,
+  "id": "/subscriptions/XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX/resourceGroups/data-engineering-rg/providers/Microsoft.DataFactory/factories/adf-student-tutorial-001",
+  "identity": {
+    "principalId": "AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA",
+    "tenantId": "BBBBBBBB-BBBB-BBBB-BBBB-BBBBBBBBBBBB",
+    "type": "SystemAssigned",
+    "userAssignedIdentities": null
+  },
+  "location": "eastus",
+  "name": "adf-student-tutorial-001",
+  "provisioningState": "Succeeded",
+  "publicNetworkAccess": null,
+  "purviewConfiguration": null,
+  "repoConfiguration": null,
+  "resourceGroup": "data-engineering-rg",
+  "tags": {},
+  "type": "Microsoft.DataFactory/factories",
+  "version": "2018-06-01"
+}
 ```
 
 ### 4.3 Understanding the ADF Studio Interface
 
-```
+```adf-studio-interface
 ┌─────────────────────────────────────────────────────────────────────────────────┐
-│                           ADF STUDIO INTERFACE                                   │
+│                           ADF STUDIO INTERFACE                                  │
 ├─────────────────────────────────────────────────────────────────────────────────┤
 │  ┌───────────────┐                                                              │
 │  │  AUTHOR       │ ← Create pipelines, datasets, dataflows                      │
@@ -279,13 +466,13 @@ az datafactory show \
 │  │  MANAGE       │ ← Linked services, integration runtimes, triggers            │
 │  └───────────────┘                                                              │
 │                                                                                 │
-│  ┌─────────────────────────────────────────────────────────────────────────┐   │
-│  │                        PIPELINE CANVAS                                   │   │
-│  │   ┌─────────┐      ┌─────────┐      ┌─────────┐                         │   │
-│  │   │ Source  │─────▶│ Process │─────▶│  Sink   │                         │   │
-│  │   │  (Copy) │      │(Transform)     │ (Store) │                         │   │
-│  │   └─────────┘      └─────────┘      └─────────┘                         │   │
-│  └─────────────────────────────────────────────────────────────────────────┘   │
+│  ┌─────────────────────────────────────────────────────────────────────────┐    │
+│  │                        PIPELINE CANVAS                                  │    │
+│  │   ┌─────────┐      ┌───────────┐      ┌─────────┐                       │    │
+│  │   │ Source  │─────▶│ Process   │─────▶│  Sink   │                       │    │
+│  │   │  (Copy) │      │(Transform)|      │ (Store) │                       │    │
+│  │   └─────────┘      └───────────┘      └─────────┘                       │    │
+│  └─────────────────────────────────────────────────────────────────────────┘    │
 └─────────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -293,31 +480,31 @@ az datafactory show \
 
 **Common Activity Types:**
 
-| Activity | Purpose | Use Case |
-|----------|---------|----------|
-| **Copy Data** | Move data between stores | SQL to Blob, API to Data Lake |
-| **Data Flow** | Transform data visually | Complex ETL transformations |
-| **Lookup** | Read config/metadata | Get table names, connection strings |
-| **ForEach** | Loop over items | Process multiple tables |
-| **If Condition** | Branching logic | Run different paths based on conditions |
-| **Execute Pipeline** | Call other pipelines | Modular pipeline design |
-| **Set Variable** | Store values | Pass data between activities |
-| **Web** | Call REST APIs | Trigger external services |
-| **Stored Procedure** | Run SQL procedures | Execute database logic |
+| Activity             | Purpose                  | Use Case                                |
+| -------------------- | ------------------------ | --------------------------------------- |
+| **Copy Data**        | Move data between stores | SQL to Blob, API to Data Lake           |
+| **Data Flow**        | Transform data visually  | Complex ETL transformations             |
+| **Lookup**           | Read config/metadata     | Get table names, connection strings     |
+| **ForEach**          | Loop over items          | Process multiple tables                 |
+| **If Condition**     | Branching logic          | Run different paths based on conditions |
+| **Execute Pipeline** | Call other pipelines     | Modular pipeline design                 |
+| **Set Variable**     | Store values             | Pass data between activities            |
+| **Web**              | Call REST APIs           | Trigger external services               |
+| **Stored Procedure** | Run SQL procedures       | Execute database logic                  |
 
 ### 4.5 Creating Your First Pipeline
 
 **Scenario:** Copy data from Azure SQL Database to Azure Data Lake Storage
 
-```
+```pipeline-architecture
 ┌────────────────────────────────────────────────────────────────────────────────┐
-│                        FIRST PIPELINE ARCHITECTURE                              │
-│                                                                                 │
-│   ┌──────────────┐         ┌──────────────┐         ┌──────────────┐          │
-│   │  Azure SQL   │────────▶│  Copy Data   │────────▶│  Data Lake   │          │
-│   │  Database    │         │  Activity    │         │  Storage     │          │
-│   │  (Source)    │         │              │         │  (Sink)      │          │
-│   └──────────────┘         └──────────────┘         └──────────────┘          │
+│                        FIRST PIPELINE ARCHITECTURE                             │
+│                                                                                │
+│   ┌──────────────┐         ┌──────────────┐         ┌──────────────┐           │
+│   │  Azure SQL   │────────▶│  Copy Data   │────────▶│  Data Lake   │           │
+│   │  Database    │         │  Activity    │         │  Storage     │           │
+│   │  (Source)    │         │              │         │  (Sink)      │           │
+│   └──────────────┘         └──────────────┘         └──────────────┘           │
 │         │                        │                        │                    │
 │         ▼                        ▼                        ▼                    │
 │   Linked Service:          Mapping:                Linked Service:             │
@@ -326,7 +513,7 @@ az datafactory show \
 └────────────────────────────────────────────────────────────────────────────────┘
 ```
 
-**Step 1: Create Linked Services**
+#### Step 1: Create Linked Services
 
 ```json
 // Azure SQL Linked Service (JSON representation)
@@ -343,12 +530,12 @@ az datafactory show \
     "name": "ls_adls_storage",
     "type": "AzureBlobFS",
     "typeProperties": {
-        "url": "https://stdataengdev001.dfs.core.windows.net/"
+        "url": "https://sa4dataengdev001.dfs.core.windows.net/"
     }
 }
 ```
 
-**Step 2: Create Datasets**
+#### Step 2: Create Datasets
 
 ```json
 // Source Dataset - SQL Table
@@ -377,7 +564,7 @@ az datafactory show \
 }
 ```
 
-**Step 3: Create Pipeline**
+#### Step 3: Create Pipeline
 
 ```json
 {
@@ -418,23 +605,23 @@ az datafactory show \
 
 **Why Parameterize?** Instead of creating separate pipelines for each table, create ONE reusable pipeline.
 
-```
+```parameterizing-pipelines
 ┌────────────────────────────────────────────────────────────────────────────────┐
-│                         PARAMETERIZED PIPELINE                                  │
-│                                                                                 │
-│   Parameters:                                                                   │
+│                         PARAMETERIZED PIPELINE                                 │
+│                                                                                │
+│   Parameters:                                                                  │
 │   ┌─────────────────────────────────────────────────────────┐                  │
 │   │  schema_name    = "SalesLT"                             │                  │
 │   │  table_name     = "Customer"                            │                  │
 │   │  output_folder  = "bronze/customers"                    │                  │
 │   └─────────────────────────────────────────────────────────┘                  │
-│                              │                                                  │
-│                              ▼                                                  │
+│                              │                                                 │
+│                              ▼                                                 │
 │   ┌──────────────────────────────────────────────────────┐                     │
-│   │              Copy Data Activity                       │                     │
-│   │   Source: @{pipeline().parameters.schema_name}.       │                     │
-│   │           @{pipeline().parameters.table_name}         │                     │
-│   │   Sink:   @{pipeline().parameters.output_folder}/     │                     │
+│   │              Copy Data Activity                       │                    │
+│   │   Source: @{pipeline().parameters.schema_name}.       │                    │
+│   │           @{pipeline().parameters.table_name}         │                    │
+│   │   Sink:   @{pipeline().parameters.output_folder}/     │                    │
 │   └──────────────────────────────────────────────────────┘                     │
 └────────────────────────────────────────────────────────────────────────────────┘
 ```
@@ -481,26 +668,26 @@ az datafactory show \
 
 ### 4.7 Triggers Explained
 
-```
+```trigger-types
 ┌────────────────────────────────────────────────────────────────────────────────┐
-│                              TRIGGER TYPES                                      │
+│                              TRIGGER TYPES                                     │
 ├────────────────────────────────────────────────────────────────────────────────┤
-│                                                                                 │
+│                                                                                │
 │  ┌─────────────────┐    Run at specific times (cron-style)                     │
 │  │    SCHEDULE     │    Example: Every day at 2 AM                             │
 │  │    TRIGGER      │    "0 0 2 * * *"                                          │
 │  └─────────────────┘                                                           │
-│                                                                                 │
+│                                                                                │
 │  ┌─────────────────┐    Run when window of time completes                      │
 │  │    TUMBLING     │    Example: Process hourly batches                        │
 │  │    WINDOW       │    Good for: Incremental processing                       │
 │  └─────────────────┘                                                           │
-│                                                                                 │
+│                                                                                │
 │  ┌─────────────────┐    Run when file arrives                                  │
 │  │    EVENT        │    Example: New CSV in blob storage                       │
 │  │    TRIGGER      │    Good for: Real-time ingestion                          │
 │  └─────────────────┘                                                           │
-│                                                                                 │
+│                                                                                │
 │  ┌─────────────────┐    Run on demand (Debug, Test)                            │
 │  │    MANUAL       │    Click "Trigger Now" or API call                        │
 │  │    TRIGGER      │                                                           │
@@ -537,10 +724,10 @@ az datafactory show \
 
 **ADF uses expressions for dynamic values. Common patterns:**
 
-```
-┌────────────────────────────────────────────────────────────────────────────────┐
+```expression-cheat-sheet
+┌─────────────────────────────────────────────────────────────────────────────────┐
 │                         EXPRESSION CHEAT SHEET                                  │
-├────────────────────────────────────────────────────────────────────────────────┤
+├─────────────────────────────────────────────────────────────────────────────────┤
 │                                                                                 │
 │  SYSTEM VARIABLES:                                                              │
 │  ─────────────────                                                              │
@@ -552,7 +739,7 @@ az datafactory show \
 │  DATE/TIME FUNCTIONS:                                                           │
 │  ────────────────────                                                           │
 │  @utcnow()                      → Current UTC timestamp                         │
-│  @formatDateTime(utcnow(),'yyyy-MM-dd')  → Format: 2024-01-15                  │
+│  @formatDateTime(utcnow(),'yyyy-MM-dd')  → Format: 2024-01-15                   │
 │  @adddays(utcnow(),-1)          → Yesterday                                     │
 │  @startOfMonth(utcnow())        → First day of current month                    │
 │                                                                                 │
@@ -568,12 +755,12 @@ az datafactory show \
 │  @if(equals(1,1),'yes','no')    → "yes"                                         │
 │  @coalesce(null, 'default')     → "default"                                     │
 │                                                                                 │
-└────────────────────────────────────────────────────────────────────────────────┘
+└─────────────────────────────────────────────────────────────────────────────────┘
 ```
 
 **Practical Example - Dynamic File Path:**
 
-```
+```dynamic-file-path
 // Create a dynamic path: bronze/customers/2024/01/15/data.parquet
 @concat(
     'bronze/',
@@ -590,28 +777,28 @@ az datafactory show \
 
 ### 4.9 Monitoring & Debugging
 
-```
+```dashboard
 ┌────────────────────────────────────────────────────────────────────────────────┐
-│                          MONITORING DASHBOARD                                   │
+│                          MONITORING DASHBOARD                                  │
 ├────────────────────────────────────────────────────────────────────────────────┤
-│                                                                                 │
-│  Pipeline Runs:                                                                 │
-│  ┌──────────────┬────────────┬──────────┬──────────┬──────────────┐           │
-│  │ Pipeline     │ Start Time │ Duration │ Status   │ Triggered By │           │
-│  ├──────────────┼────────────┼──────────┼──────────┼──────────────┤           │
-│  │ pl_copy_cust │ 02:00:00   │ 5m 23s   │ ✓ Success│ Schedule     │           │
-│  │ pl_copy_prod │ 02:05:00   │ 12m 45s  │ ✓ Success│ Schedule     │           │
-│  │ pl_copy_ord  │ 02:15:00   │ --       │ ✗ Failed │ Schedule     │           │
-│  └──────────────┴────────────┴──────────┴──────────┴──────────────┘           │
-│                                                                                 │
-│  Activity Runs (drill down):                                                    │
-│  ┌──────────────┬──────────────┬──────────┬─────────────────────────┐         │
-│  │ Activity     │ Input/Output │ Duration │ Error Message           │         │
-│  ├──────────────┼──────────────┼──────────┼─────────────────────────┤         │
-│  │ Lookup       │ {...}        │ 2s       │ --                      │         │
-│  │ Copy Data    │ {...}        │ --       │ Connection timeout      │         │
-│  └──────────────┴──────────────┴──────────┴─────────────────────────┘         │
-│                                                                                 │
+│                                                                                │
+│  Pipeline Runs:                                                                │
+│  ┌──────────────┬────────────┬──────────┬──────────┬──────────────┐            │
+│  │ Pipeline     │ Start Time │ Duration │ Status   │ Triggered By │            │
+│  ├──────────────┼────────────┼──────────┼──────────┼──────────────┤            │
+│  │ pl_copy_cust │ 02:00:00   │ 5m 23s   │ ✓ Success│ Schedule     │            │
+│  │ pl_copy_prod │ 02:05:00   │ 12m 45s  │ ✓ Success│ Schedule     │            │
+│  │ pl_copy_ord  │ 02:15:00   │ --       │ ✗ Failed │ Schedule     │            │
+│  └──────────────┴────────────┴──────────┴──────────┴──────────────┘            │
+│                                                                                │
+│  Activity Runs (drill down):                                                   │
+│  ┌──────────────┬──────────────┬──────────┬─────────────────────────┐          │
+│  │ Activity     │ Input/Output │ Duration │ Error Message           │          │
+│  ├──────────────┼──────────────┼──────────┼─────────────────────────┤          │
+│  │ Lookup       │ {...}        │ 2s       │ --                      │          │
+│  │ Copy Data    │ {...}        │ --       │ Connection timeout      │          │
+│  └──────────────┴──────────────┴──────────┴─────────────────────────┘          │
+│                                                                                │
 └────────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -630,19 +817,19 @@ az datafactory show \
 
 **Simple Explanation:** Azure SQL Database is like having a powerful Excel spreadsheet in the cloud, but much more organized and capable of handling millions of rows without slowing down.
 
-```
+```azure-sql-database-concepts
 ┌────────────────────────────────────────────────────────────────────────────────┐
-│                     AZURE SQL DATABASE CONCEPTS                                 │
+│                     AZURE SQL DATABASE CONCEPTS                                │
 ├────────────────────────────────────────────────────────────────────────────────┤
-│                                                                                 │
+│                                                                                │
 │   Traditional Database (On-Premises)     Azure SQL Database (Cloud)            │
-│   ───────────────────────────────────    ──────────────────────────           │
+│   ───────────────────────────────────    ──────────────────────────            │
 │   • You manage the server               • Microsoft manages the server         │
 │   • You handle updates/patches          • Auto-updates & patches               │
-│   • You provision hardware              • Elastic scaling                       │
+│   • You provision hardware              • Elastic scaling                      │
 │   • You set up backups                  • Automatic backups (35 days)          │
 │   • Limited by physical hardware        • Scale up/down on demand              │
-│                                                                                 │
+│                                                                                │
 └────────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -662,7 +849,7 @@ az datafactory show \
 # Create SQL Server (logical server)
 az sql server create \
     --name "sql-dataeng-dev-001" \
-    --resource-group "data-eng-rg" \
+    --resource-group "data-engineering-rg" \
     --location "eastus" \
     --admin-user "sqladmin" \
     --admin-password "YourSecurePassword123!"
@@ -671,14 +858,14 @@ az sql server create \
 az sql db create \
     --name "sqldb-adventureworks" \
     --server "sql-dataeng-dev-001" \
-    --resource-group "data-eng-rg" \
+    --resource-group "data-engineering-rg" \
     --edition "Basic"
 
 # Configure firewall (allow Azure services)
 az sql server firewall-rule create \
     --name "AllowAzureServices" \
     --server "sql-dataeng-dev-001" \
-    --resource-group "data-eng-rg" \
+    --resource-group "data-engineering-rg" \
     --start-ip-address 0.0.0.0 \
     --end-ip-address 0.0.0.0
 ```
@@ -773,27 +960,27 @@ VALUES
 
 ### 6.1 Why Incremental Loading?
 
-```
+```full-vs-incremental-load
 ┌────────────────────────────────────────────────────────────────────────────────┐
-│                    FULL LOAD vs INCREMENTAL LOAD                                │
+│                    FULL LOAD vs INCREMENTAL LOAD                               │
 ├────────────────────────────────────────────────────────────────────────────────┤
-│                                                                                 │
+│                                                                                │
 │  FULL LOAD (Simple but Inefficient):                                           │
 │  ────────────────────────────────────                                          │
 │  Day 1: Copy 1,000,000 rows    [████████████████] 100%                         │
 │  Day 2: Copy 1,000,100 rows    [████████████████] 100%  ← Re-copy everything!  │
 │  Day 3: Copy 1,000,200 rows    [████████████████] 100%  ← Again!               │
-│                                                                                 │
-│  Problem: Wasting time & money copying unchanged data                           │
-│                                                                                 │
-│  INCREMENTAL LOAD (Efficient):                                                  │
-│  ─────────────────────────────                                                  │
+│                                                                                │
+│  Problem: Wasting time & money copying unchanged data                          │
+│                                                                                │
+│  INCREMENTAL LOAD (Efficient):                                                 │
+│  ─────────────────────────────                                                 │
 │  Day 1: Copy 1,000,000 rows    [████████████████] 100%  ← Initial load         │
 │  Day 2: Copy 100 new rows      [█               ] 0.01% ← Only changes!        │
 │  Day 3: Copy 100 new rows      [█               ] 0.01% ← Only changes!        │
-│                                                                                 │
-│  Benefit: 99.99% reduction in data transfer                                     │
-│                                                                                 │
+│                                                                                │
+│  Benefit: 99.99% reduction in data transfer                                    │
+│                                                                                │
 └────────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -801,12 +988,12 @@ VALUES
 
 **Simple Explanation:** A watermark is like a bookmark in a book. It tells you where you left off, so you don't have to start from the beginning.
 
-```
+```watermark-pattern
 ┌────────────────────────────────────────────────────────────────────────────────┐
-│                         WATERMARK PATTERN                                       │
+│                         WATERMARK PATTERN                                      │
 ├────────────────────────────────────────────────────────────────────────────────┤
-│                                                                                 │
-│  Watermark Table (tracks progress):                                             │
+│                                                                                │
+│  Watermark Table (tracks progress):                                            │
 │  ┌─────────────┬─────────────────────┬─────────────────────┐                   │
 │  │ Table Name  │ Last Watermark      │ Updated At          │                   │
 │  ├─────────────┼─────────────────────┼─────────────────────┤                   │
@@ -814,14 +1001,14 @@ VALUES
 │  │ Product     │ 2024-01-14 23:59:59 │ 2024-01-15 02:05:00 │                   │
 │  │ SalesOrder  │ 2024-01-14 23:59:59 │ 2024-01-15 02:10:00 │                   │
 │  └─────────────┴─────────────────────┴─────────────────────┘                   │
-│                                                                                 │
-│  How it works:                                                                  │
-│  ─────────────                                                                  │
+│                                                                                │
+│  How it works:                                                                 │
+│  ─────────────                                                                 │
 │  1. Read last watermark: 2024-01-14 23:59:59                                   │
 │  2. Query source: WHERE ModifiedDate > '2024-01-14 23:59:59'                   │
-│  3. Copy only new/modified records                                              │
-│  4. Update watermark to max(ModifiedDate) from copied data                      │
-│                                                                                 │
+│  3. Copy only new/modified records                                             │
+│  4. Update watermark to max(ModifiedDate) from copied data                     │
+│                                                                                │
 └────────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -845,23 +1032,23 @@ VALUES
 
 ### 6.4 Incremental Pipeline Design
 
-```
+```incremental-pipeline-design
 ┌────────────────────────────────────────────────────────────────────────────────┐
-│                    INCREMENTAL INGESTION PIPELINE                               │
+│                    INCREMENTAL INGESTION PIPELINE                              │
 ├────────────────────────────────────────────────────────────────────────────────┤
-│                                                                                 │
-│   ┌─────────────┐     ┌─────────────┐     ┌─────────────┐     ┌─────────────┐ │
-│   │  Lookup     │────▶│  Lookup     │────▶│  Copy Data  │────▶│  Stored     │ │
-│   │  Old        │     │  New        │     │  (Delta)    │     │  Procedure  │ │
-│   │  Watermark  │     │  Watermark  │     │             │     │  (Update    │ │
-│   │             │     │             │     │             │     │  Watermark) │ │
-│   └─────────────┘     └─────────────┘     └─────────────┘     └─────────────┘ │
-│         │                   │                   │                   │         │
-│         ▼                   ▼                   ▼                   ▼         │
-│   Get last loaded     Get max(Modified    Copy WHERE           Update         │
-│   timestamp from      Date) from source   Modified > old       watermark      │
-│   watermark table                         AND <= new           table          │
-│                                                                                 │
+│                                                                                │
+│   ┌─────────────┐     ┌─────────────┐     ┌─────────────┐     ┌─────────────┐  │
+│   │  Lookup     │────▶│  Lookup     │────▶│  Copy Data  │────▶│  Stored     │  │
+│   │  Old        │     │  New        │     │  (Delta)    │     │  Procedure  │  │
+│   │  Watermark  │     │  Watermark  │     │             │     │  (Update    │  │
+│   │             │     │             │     │             │     │  Watermark) │  │
+│   └─────────────┘     └─────────────┘     └─────────────┘     └─────────────┘  │
+│         │                   │                   │                   │          │
+│         ▼                   ▼                   ▼                   ▼          │
+│   Get last loaded     Get max(Modified    Copy WHERE           Update          │
+│   timestamp from      Date) from source   Modified > old       watermark       │
+│   watermark table                         AND <= new           table           │
+│                                                                                │
 └────────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -956,30 +1143,30 @@ END;
 
 **What is Backfilling?** Sometimes you need to reload historical data. Backfilling allows you to specify a custom date range instead of using the watermark.
 
-```
+```add-backfilling-feature
 ┌────────────────────────────────────────────────────────────────────────────────┐
-│                         BACKFILL PIPELINE FLOW                                  │
+│                         BACKFILL PIPELINE FLOW                                 │
 ├────────────────────────────────────────────────────────────────────────────────┤
-│                                                                                 │
-│   Parameters:                                                                   │
+│                                                                                │
+│   Parameters:                                                                  │
 │   ┌─────────────────────────────────────────┐                                  │
 │   │  is_backfill     = true/false           │                                  │
 │   │  backfill_start  = "2024-01-01"         │                                  │
 │   │  backfill_end    = "2024-01-15"         │                                  │
 │   └─────────────────────────────────────────┘                                  │
-│                         │                                                       │
-│                         ▼                                                       │
+│                         │                                                      │
+│                         ▼                                                      │
 │   ┌─────────────────────────────────────────┐                                  │
 │   │         IF CONDITION                    │                                  │
 │   │    is_backfill == true?                 │                                  │
 │   └────────────────┬────────────────────────┘                                  │
-│            Yes     │     No                                                     │
-│             ▼      │      ▼                                                     │
+│            Yes     │     No                                                    │
+│             ▼      │      ▼                                                    │
 │   ┌────────────┐   │   ┌────────────┐                                          │
 │   │ Use custom │   │   │ Use normal │                                          │
 │   │ date range │   │   │ watermark  │                                          │
 │   └────────────┘   │   └────────────┘                                          │
-│                                                                                 │
+│                                                                                │
 └────────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -1040,29 +1227,29 @@ END;
 
 **Simple Explanation:** Imagine you need to copy data from 50 different tables. Without looping, you'd create 50 separate copy activities. With looping, you create ONE copy activity and run it 50 times with different parameters.
 
-```
+```looping-benefits
 ┌────────────────────────────────────────────────────────────────────────────────┐
-│                    WITHOUT LOOPING vs WITH LOOPING                              │
+│                    WITHOUT LOOPING vs WITH LOOPING                             │
 ├────────────────────────────────────────────────────────────────────────────────┤
-│                                                                                 │
+│                                                                                │
 │  WITHOUT LOOPING (50 tables = 50 activities):                                  │
 │  ──────────────────────────────────────────────                                │
-│  ┌────────┐ ┌────────┐ ┌────────┐       ┌────────┐                            │
-│  │ Copy   │ │ Copy   │ │ Copy   │  ...  │ Copy   │                            │
-│  │ Table1 │ │ Table2 │ │ Table3 │       │Table50 │                            │
-│  └────────┘ └────────┘ └────────┘       └────────┘                            │
-│  Problem: Hard to maintain, duplicate logic                                     │
-│                                                                                 │
+│  ┌────────┐ ┌────────┐ ┌────────┐       ┌────────┐                             │
+│  │ Copy   │ │ Copy   │ │ Copy   │  ...  │ Copy   │                             │
+│  │ Table1 │ │ Table2 │ │ Table3 │       │Table50 │                             │
+│  └────────┘ └────────┘ └────────┘       └────────┘                             │
+│  Problem: Hard to maintain, duplicate logic                                    │
+│                                                                                │
 │  WITH LOOPING (50 tables = 1 ForEach activity):                                │
 │  ───────────────────────────────────────────────                               │
 │  ┌─────────────────────────────────────────────┐                               │
 │  │  ForEach (items: [Table1, Table2, ... ])    │                               │
 │  │  ┌────────────────────────────────────────┐ │                               │
-│  │  │  Copy @{item().tableName}              │ │  ← Runs 50 times             │
+│  │  │  Copy @{item().tableName}              │ │  ← Runs 50 times              │
 │  │  └────────────────────────────────────────┘ │                               │
 │  └─────────────────────────────────────────────┘                               │
-│  Benefit: Single source of truth, easy maintenance                              │
-│                                                                                 │
+│  Benefit: Single source of truth, easy maintenance                             │
+│                                                                                │
 └────────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -1070,38 +1257,38 @@ END;
 
 **Key Properties:**
 
-| Property | Description | Example |
-|----------|-------------|---------|
-| `items` | Array to iterate over | `["Customer", "Product", "Order"]` |
-| `isSequential` | Run items one by one or in parallel | `false` (parallel) |
-| `batchCount` | Max parallel executions (1-50) | `20` |
-| `activities` | What to do for each item | Copy, Execute Pipeline, etc. |
+| Property       | Description                         | Example                            |
+| -------------- | ----------------------------------- | ---------------------------------- |
+| `items`        | Array to iterate over               | `["Customer", "Product", "Order"]` |
+| `isSequential` | Run items one by one or in parallel | `false` (parallel)                 |
+| `batchCount`   | Max parallel executions (1-50)      | `20`                               |
+| `activities`   | What to do for each item            | Copy, Execute Pipeline, etc.       |
 
-```
+```foreach-modes
 ┌────────────────────────────────────────────────────────────────────────────────┐
-│                    FOREACH EXECUTION MODES                                      │
+│                    FOREACH EXECUTION MODES                                     │
 ├────────────────────────────────────────────────────────────────────────────────┤
-│                                                                                 │
+│                                                                                │
 │  SEQUENTIAL (isSequential = true):                                             │
 │  ─────────────────────────────────                                             │
-│  Item 1 ────▶ Item 2 ────▶ Item 3 ────▶ Item 4 ────▶ Done                     │
-│  (5 min)      (5 min)      (5 min)      (5 min)      Total: 20 min            │
-│                                                                                 │
+│  Item 1 ────▶ Item 2 ────▶ Item 3 ────▶ Item 4 ────▶ Done                      │
+│  (5 min)      (5 min)      (5 min)      (5 min)      Total: 20 min             │
+│                                                                                │
 │  PARALLEL (isSequential = false, batchCount = 4):                              │
 │  ────────────────────────────────────────────────                              │
-│  Item 1 ─┐                                                                      │
+│  Item 1 ─┐                                                                     │
 │  Item 2 ─┼────▶ All complete ────▶ Done                                        │
 │  Item 3 ─┤      (5 min)            Total: 5 min                                │
-│  Item 4 ─┘                                                                      │
-│                                                                                 │
+│  Item 4 ─┘                                                                     │
+│                                                                                │
 │  Speedup: 4x faster with parallel execution!                                   │
-│                                                                                 │
+│                                                                                │
 └────────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ### 7.3 Building a Looping Pipeline
 
-**Step 1: Create Metadata Table**
+#### Step 1: Create Metadata Table
 
 ```sql
 -- Table to store list of tables to process
@@ -1124,29 +1311,29 @@ VALUES
     ('SalesLT', 'Category', 'ModifiedDate', 5);
 ```
 
-**Step 2: Lookup + ForEach Pipeline**
+#### Step 2: Lookup + ForEach Pipeline
 
-```
+```metadata-driven-loop
 ┌────────────────────────────────────────────────────────────────────────────────┐
-│                    METADATA-DRIVEN LOOPING PIPELINE                             │
+│                    METADATA-DRIVEN LOOPING PIPELINE                            │
 ├────────────────────────────────────────────────────────────────────────────────┤
-│                                                                                 │
+│                                                                                │
 │   ┌─────────────┐      ┌─────────────────────────────────────────────────────┐ │
 │   │   Lookup    │─────▶│              ForEach                                │ │
-│   │   (Get all  │      │  ┌─────────────────────────────────────────────┐   │ │
-│   │   tables)   │      │  │  Execute Pipeline: pl_incremental_load      │   │ │
-│   └─────────────┘      │  │  Parameters:                                │   │ │
-│         │              │  │    schema_name: @{item().SchemaName}        │   │ │
-│         ▼              │  │    table_name:  @{item().TableName}         │   │ │
-│   Returns array:       │  └─────────────────────────────────────────────┘   │ │
+│   │   (Get all  │      │  ┌─────────────────────────────────────────────┐    │ │
+│   │   tables)   │      │  │  Execute Pipeline: pl_incremental_load      │    │ │
+│   └─────────────┘      │  │  Parameters:                                │    │ │
+│         │              │  │    schema_name: @{item().SchemaName}        │    │ │
+│         ▼              │  │    table_name:  @{item().TableName}         │    │ │
+│   Returns array:       │  └─────────────────────────────────────────────┘    │ │
 │   [                    └─────────────────────────────────────────────────────┘ │
-│     {SchemaName:                                                                │
-│      "SalesLT",                                                                 │
-│      TableName:                                                                 │
-│      "Customer"},                                                               │
-│     {...},                                                                      │
-│     {...}                                                                       │
-│   ]                                                                             │
+│     {SchemaName:                                                               │
+│      "SalesLT",                                                                │
+│      TableName:                                                                │
+│      "Customer"},                                                              │
+│     {...},                                                                     │
+│     {...}                                                                      │
+│   ]                                                                            │
 └────────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -1208,22 +1395,22 @@ VALUES
 
 **Scenario:** Load data from multiple source systems, each with multiple tables
 
-```
+```nested-foreach-pattern
 ┌────────────────────────────────────────────────────────────────────────────────┐
-│                    NESTED FOREACH PATTERN                                       │
+│                    NESTED FOREACH PATTERN                                      │
 ├────────────────────────────────────────────────────────────────────────────────┤
-│                                                                                 │
-│   ┌───────────────────────────────────────────────────────────────────────┐   │
-│   │  ForEach SOURCE (Systems: [ERP, CRM, HR])                             │   │
-│   │  ┌───────────────────────────────────────────────────────────────┐   │   │
-│   │  │  ForEach TABLE (Tables from each source)                      │   │   │
-│   │  │  ┌─────────────────────────────────────────────────────────┐ │   │   │
-│   │  │  │  Copy Data Activity                                     │ │   │   │
-│   │  │  │  Source: @{item().SourceSystem}.@{item().TableName}     │ │   │   │
-│   │  │  └─────────────────────────────────────────────────────────┘ │   │   │
-│   │  └───────────────────────────────────────────────────────────────┘   │   │
-│   └───────────────────────────────────────────────────────────────────────┘   │
-│                                                                                 │
+│                                                                                │
+│   ┌───────────────────────────────────────────────────────────────────────┐    │
+│   │  ForEach SOURCE (Systems: [ERP, CRM, HR])                             │    │
+│   │  ┌───────────────────────────────────────────────────────────────┐    │    │
+│   │  │  ForEach TABLE (Tables from each source)                      │    │    │
+│   │  │  ┌─────────────────────────────────────────────────────────┐  │    │    │
+│   │  │  │  Copy Data Activity                                     │  │    │    │
+│   │  │  │  Source: @{item().SourceSystem}.@{item().TableName}     │  │    │    │
+│   │  │  └─────────────────────────────────────────────────────────┘  │    │    │
+│   │  └───────────────────────────────────────────────────────────────┘    │    │
+│   └───────────────────────────────────────────────────────────────────────┘    │
+│                                                                                │
 └────────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -1270,30 +1457,30 @@ VALUES
 
 **Simple Explanation:** Logic Apps is like IFTTT or Zapier for the cloud. It connects different services and automates workflows with a visual designer. Think of it as: "When THIS happens, do THAT."
 
-```
+```logic-apps-overview
 ┌────────────────────────────────────────────────────────────────────────────────┐
-│                    LOGIC APPS OVERVIEW                                          │
+│                    LOGIC APPS OVERVIEW                                         │
 ├────────────────────────────────────────────────────────────────────────────────┤
-│                                                                                 │
-│  Common Use Cases with ADF:                                                     │
-│  ─────────────────────────────                                                  │
-│  ┌────────────┐        ┌─────────────┐        ┌────────────┐                   │
-│  │ ADF        │───────▶│ Logic App   │───────▶│ Send Email │                   │
-│  │ Pipeline   │ Trigger│             │ Action │ Notification│                  │
-│  │ Completes  │        │             │        │            │                   │
-│  └────────────┘        └─────────────┘        └────────────┘                   │
-│                                                                                 │
+│                                                                                │
+│  Common Use Cases with ADF:                                                    │
+│  ─────────────────────────────                                                 │
+│  ┌────────────┐        ┌─────────────┐        ┌──────────────┐                 │
+│  │ ADF        │───────▶│ Logic App   │───────▶│ Send Email   │                 │
+│  │ Pipeline   │ Trigger│             │ Action │ Notification │                 │
+│  │ Completes  │        │             │        │              │                 │
+│  └────────────┘        └─────────────┘        └──────────────┘                 │
+│                                                                                │
 │  ┌────────────┐        ┌─────────────┐        ┌────────────┐                   │
 │  │ ADF        │───────▶│ Logic App   │───────▶│ Post to    │                   │
 │  │ Pipeline   │        │             │        │ Slack/Teams│                   │
 │  │ Fails      │        │             │        │            │                   │
 │  └────────────┘        └─────────────┘        └────────────┘                   │
-│                                                                                 │
-│  ┌────────────┐        ┌─────────────┐        ┌────────────┐                   │
-│  │ New File   │───────▶│ Logic App   │───────▶│ Trigger    │                   │
-│  │ Arrives    │        │             │        │ ADF Pipeline│                  │
-│  └────────────┘        └─────────────┘        └────────────┘                   │
-│                                                                                 │
+│                                                                                │
+│  ┌────────────┐        ┌─────────────┐        ┌──────────────┐                 │
+│  │ New File   │───────▶│ Logic App   │───────▶│ Trigger      │                 │
+│  │ Arrives    │        │             │        │ ADF Pipeline │                │
+│  └────────────┘        └─────────────┘        └──────────────┘                 │
+│                                                                                │
 └────────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -1301,41 +1488,41 @@ VALUES
 
 **Architecture:**
 
-```
+```notification-system-architecture
 ┌────────────────────────────────────────────────────────────────────────────────┐
-│                    NOTIFICATION SYSTEM ARCHITECTURE                             │
+│                    NOTIFICATION SYSTEM ARCHITECTURE                            │
 ├────────────────────────────────────────────────────────────────────────────────┤
-│                                                                                 │
-│   ┌───────────────┐                                                             │
-│   │  ADF Pipeline │                                                             │
-│   │  Completes    │                                                             │
-│   └───────┬───────┘                                                             │
-│           │                                                                     │
-│           ▼                                                                     │
-│   ┌───────────────┐      ┌───────────────┐      ┌───────────────┐             │
-│   │  Web Activity │─────▶│  Logic App    │─────▶│  Send Email   │             │
-│   │  (HTTP POST)  │      │  (Triggered)  │      │  via Outlook  │             │
-│   └───────────────┘      └───────────────┘      └───────────────┘             │
-│                                │                                                │
+│                                                                                │
+│   ┌───────────────┐                                                            │
+│   │  ADF Pipeline │                                                            │
+│   │  Completes    │                                                            │
+│   └───────┬───────┘                                                            │
+│           │                                                                    │
+│           ▼                                                                    │
+│   ┌───────────────┐      ┌───────────────┐      ┌───────────────┐              │
+│   │  Web Activity │─────▶│  Logic App    │─────▶│  Send Email   │              │
+│   │  (HTTP POST)  │      │  (Triggered)  │      │  via Outlook  │              │
+│   └───────────────┘      └───────────────┘      └───────────────┘              │
+│                                │                                               │
 │                                ├─────────────────▶ Post to Teams               │
-│                                │                                                │
+│                                │                                               │
 │                                └─────────────────▶ Log to Database             │
-│                                                                                 │
+│                                                                                │
 └────────────────────────────────────────────────────────────────────────────────┘
 ```
 
-**Step 1: Create Logic App via Azure CLI**
+#### Step 1: Create Logic App via Azure CLI
 
 ```bash
 # Create Logic App
 az logic workflow create \
     --name "la-adf-notifications" \
-    --resource-group "data-eng-rg" \
+    --resource-group "data-engineering-rg" \
     --location "eastus" \
     --definition @logic-app-definition.json
 ```
 
-**Step 2: Logic App Definition (Trigger: HTTP Request)**
+#### Step 2: Logic App Definition (Trigger: HTTP Request)
 
 ```json
 {
@@ -1432,26 +1619,26 @@ az logic workflow create \
 
 ### 8.4 Error Notification Pattern
 
-```
-┌────────────────────────────────────────────────────────────────────────────────┐
-│                    ERROR NOTIFICATION PIPELINE PATTERN                          │
-├────────────────────────────────────────────────────────────────────────────────┤
-│                                                                                 │
+```error-notification-pattern
+┌───────────────────────────────────────────────────────────────────────────────┐
+│                    ERROR NOTIFICATION PIPELINE PATTERN                        │
+├───────────────────────────────────────────────────────────────────────────────┤
+│                                                                               │
 │   ┌─────────────────────────────────────────────────────────────────────────┐ │
-│   │                        Main Pipeline                                     │ │
+│   │                        Main Pipeline                                    │ │
 │   │   ┌─────────┐      ┌─────────┐      ┌─────────┐                         │ │
 │   │   │ Step 1  │─────▶│ Step 2  │─────▶│ Step 3  │                         │ │
 │   │   └─────────┘      └─────────┘      └─────────┘                         │ │
-│   │        │                │                │                               │ │
+│   │        │                │                │                              │ │
 │   │        │ On Failure     │ On Failure     │ On Failure                   │ │
-│   │        ▼                ▼                ▼                               │ │
+│   │        ▼                ▼                ▼                              │ │
 │   │   ┌───────────────────────────────────────────────────────────────────┐ │ │
 │   │   │              Error Handler (Web Activity → Logic App)             │ │ │
 │   │   └───────────────────────────────────────────────────────────────────┘ │ │
 │   │                                                                         │ │
 │   └─────────────────────────────────────────────────────────────────────────┘ │
-│                                                                                 │
-└────────────────────────────────────────────────────────────────────────────────┘
+│                                                                               │
+└───────────────────────────────────────────────────────────────────────────────┘
 ```
 
 **ADF Pipeline with Error Handling:**
@@ -1533,31 +1720,31 @@ az logic workflow create \
 
 **Use Case:** Trigger ADF pipeline on a complex schedule (e.g., only on business days)
 
-```
-┌────────────────────────────────────────────────────────────────────────────────┐
-│                    LOGIC APP TRIGGERED PIPELINE                                 │
-├────────────────────────────────────────────────────────────────────────────────┤
-│                                                                                 │
-│   ┌─────────────────┐                                                          │
-│   │  Recurrence     │  ← Every day at 6 AM                                     │
-│   │  Trigger        │                                                          │
-│   └────────┬────────┘                                                          │
-│            │                                                                    │
-│            ▼                                                                    │
-│   ┌─────────────────┐                                                          │
-│   │  Condition:     │  ← Is it a business day?                                 │
-│   │  dayOfWeek()    │    (Monday-Friday, not holiday)                          │
-│   │  not in [0,6]   │                                                          │
-│   └────────┬────────┘                                                          │
-│            │ Yes                                                                │
-│            ▼                                                                    │
-│   ┌─────────────────┐                                                          │
-│   │  HTTP Action    │  ← Call ADF REST API                                     │
-│   │  POST: Create   │    to trigger pipeline                                   │
-│   │  Pipeline Run   │                                                          │
-│   └─────────────────┘                                                          │
-│                                                                                 │
-└────────────────────────────────────────────────────────────────────────────────┘
+```scheduled-trigger-pattern
+┌───────────────────────────────────────────────────────────────────────────────┐
+│                    LOGIC APP TRIGGERED PIPELINE                               │
+├───────────────────────────────────────────────────────────────────────────────┤
+│                                                                               │
+│   ┌─────────────────┐                                                         │
+│   │  Recurrence     │  ← Every day at 6 AM                                    │
+│   │  Trigger        │                                                         │
+│   └────────┬────────┘                                                         │
+│            │                                                                  │
+│            ▼                                                                  │
+│   ┌─────────────────┐                                                         │
+│   │  Condition:     │  ← Is it a business day?                                │
+│   │  dayOfWeek()    │    (Monday-Friday, not holiday)                         │
+│   │  not in [0,6]   │                                                         │
+│   └────────┬────────┘                                                         │
+│            │ Yes                                                              │
+│            ▼                                                                  │
+│   ┌─────────────────┐                                                         │
+│   │  HTTP Action    │  ← Call ADF REST API                                    │
+│   │  POST: Create   │    to trigger pipeline                                  │
+│   │  Pipeline Run   │                                                         │
+│   └─────────────────┘                                                         │
+│                                                                               │
+└───────────────────────────────────────────────────────────────────────────────┘
 ```
 
 **HTTP Action to Trigger ADF Pipeline:**
@@ -1588,14 +1775,14 @@ az logic workflow create \
 
 **Simple Explanation:** Azure Databricks is like a super-powered workshop where you can process massive amounts of data. Imagine having a regular kitchen (your laptop) vs. a commercial kitchen with 100 chefs (Databricks) - both can cook, but one can handle restaurant-scale operations.
 
-```
+```databricks-explained
 ┌────────────────────────────────────────────────────────────────────────────────┐
-│                    DATABRICKS EXPLAINED                                         │
+│                    DATABRICKS EXPLAINED                                        │
 ├────────────────────────────────────────────────────────────────────────────────┤
-│                                                                                 │
-│   Traditional Processing              Databricks (Distributed)                  │
+│                                                                                │
+│   Traditional Processing              Databricks (Distributed)                 │
 │   ─────────────────────               ─────────────────────────                │
-│                                                                                 │
+│                                                                                │
 │   ┌──────────────┐                   ┌──────────────────────────┐              │
 │   │   1 Machine  │                   │      DRIVER NODE         │              │
 │   │              │                   │   (Coordinator/Brain)    │              │
@@ -1603,25 +1790,25 @@ az logic workflow create \
 │   │  │ Python │  │                                │                            │
 │   │  │ Script │  │                   ┌────────────┼────────────┐               │
 │   │  └────────┘  │                   ▼            ▼            ▼               │
-│   │              │                   ┌────┐    ┌────┐    ┌────┐               │
-│   │  Process 1GB │                   │Node│    │Node│    │Node│               │
-│   │  at a time   │                   │ 1  │    │ 2  │    │ 3  │               │
-│   └──────────────┘                   └────┘    └────┘    └────┘               │
+│   │              │                   ┌────┐    ┌────┐    ┌────┐                │
+│   │  Process 1GB │                   │Node│    │Node│    │Node│                │
+│   │  at a time   │                   │ 1  │    │ 2  │    │ 3  │                │
+│   └──────────────┘                   └────┘    └────┘    └────┘                │
 │                                      Process 100GB+ in parallel                │
-│   Time: Hours                        Time: Minutes                              │
-│                                                                                 │
+│   Time: Hours                        Time: Minutes                             │
+│                                                                                │
 └────────────────────────────────────────────────────────────────────────────────┘
 ```
 
 **Key Components:**
 
-| Component | What It Is | Analogy |
-|-----------|-----------|---------|
-| **Workspace** | Your working environment | Your office building |
-| **Cluster** | Group of VMs that process data | Team of workers |
-| **Notebook** | Interactive code environment | Your notepad |
-| **Job** | Scheduled/automated execution | Task on your calendar |
-| **DBFS** | Databricks File System | Shared company drive |
+| Component     | What It Is                     | Analogy               |
+| ------------- | ------------------------------ | --------------------- |
+| **Workspace** | Your working environment       | Your office building  |
+| **Cluster**   | Group of VMs that process data | Team of workers       |
+| **Notebook**  | Interactive code environment   | Your notepad          |
+| **Job**       | Scheduled/automated execution  | Task on your calendar |
+| **DBFS**      | Databricks File System         | Shared company drive  |
 
 ### 9.2 Creating an Azure Databricks Workspace
 
@@ -1639,41 +1826,39 @@ az logic workflow create \
 # Create Databricks Workspace
 az databricks workspace create \
     --name "dbw-dataeng-dev-001" \
-    --resource-group "data-eng-rg" \
+    --resource-group "data-engineering-rg" \
     --location "eastus" \
     --sku premium
 
 # Get workspace URL
 az databricks workspace show \
     --name "dbw-dataeng-dev-001" \
-    --resource-group "data-eng-rg" \
+    --resource-group "data-engineering-rg" \
     --query "workspaceUrl" -o tsv
 ```
 
-### 9.3 Understanding the Databricks Interface
-
-```
-┌────────────────────────────────────────────────────────────────────────────────┐
-│                    DATABRICKS WORKSPACE LAYOUT                                  │
-├────────────────────────────────────────────────────────────────────────────────┤
-│                                                                                 │
-│  ┌──────────────────┐  ┌───────────────────────────────────────────────────┐  │
-│  │  SIDEBAR         │  │              MAIN WORKSPACE AREA                  │  │
-│  │  ─────────       │  │                                                   │  │
-│  │  📁 Workspace    │  │  ┌─────────────────────────────────────────────┐ │  │
-│  │  📊 Repos        │  │  │              NOTEBOOK                       │ │  │
-│  │  💾 Data         │  │  │  ┌────────────────────────────────────────┐│ │  │
-│  │  ⚙️ Compute      │  │  │  │ # Cell 1 - Python                     ││ │  │
-│  │  🔄 Workflows    │  │  │  │ df = spark.read.parquet("/data/...")  ││ │  │
-│  │  📈 SQL          │  │  │  └────────────────────────────────────────┘│ │  │
-│  │  🔬 ML           │  │  │  ┌────────────────────────────────────────┐│ │  │
-│  │                  │  │  │  │ # Cell 2 - SQL                        ││ │  │
-│  │                  │  │  │  │ SELECT * FROM customers LIMIT 10      ││ │  │
-│  │                  │  │  │  └────────────────────────────────────────┘│ │  │
+```databricks-workspace-layout
+┌──────────────────────────────────────────────────────────────────────────────┐
+│                    DATABRICKS WORKSPACE LAYOUT                               │
+├──────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  ┌──────────────────┐  ┌──────────────────────────────────────────────────┐  │
+│  │  SIDEBAR         │  │              MAIN WORKSPACE AREA                 │  │
+│  │  ─────────       │  │                                                  │  │
+│  │  Workspace       │  │  ┌─────────────────────────────────────────────┐ │  │
+│  │  Repos           │  │  │              NOTEBOOK                       │ │  │
+│  │  Data            │  │  │  ┌────────────────────────────────────────┐ │ │  │
+│  │  Compute         │  │  │  │ # Cell 1 - Python                      │ │ │  │
+│  │  Workflows       │  │  │  │ df = spark.read.parquet("/data/...")   │ │ │  │
+│  │  SQL             │  │  │  └────────────────────────────────────────┘ │ │  │
+│  │  ML              │  │  │  ┌────────────────────────────────────────┐ │ │  │
+│  │                  │  │  │  │ # Cell 2 - SQL                         │ │ │  │
+│  │                  │  │  │  │ SELECT * FROM customers LIMIT 10       │ │ │  │
+│  │                  │  │  │  └────────────────────────────────────────┘ │ │  │
 │  │                  │  │  └─────────────────────────────────────────────┘ │  │
-│  └──────────────────┘  └───────────────────────────────────────────────────┘  │
-│                                                                                 │
-└────────────────────────────────────────────────────────────────────────────────┘
+│  └──────────────────┘  └──────────────────────────────────────────────────┘  │
+│                                                                              │
+└──────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ### 9.4 Clusters Deep Dive
@@ -1682,36 +1867,36 @@ az databricks workspace show \
 
 A cluster is a set of virtual machines that work together to process your data. Think of it as hiring a team of workers - more workers = faster processing.
 
-```
-┌────────────────────────────────────────────────────────────────────────────────┐
-│                    CLUSTER ARCHITECTURE                                         │
-├────────────────────────────────────────────────────────────────────────────────┤
-│                                                                                 │
+```cluster-architecture
+┌───────────────────────────────────────────────────────────────────────────────┐
+│                    CLUSTER ARCHITECTURE                                       │
+├───────────────────────────────────────────────────────────────────────────────┤
+│                                                                               │
 │   ┌─────────────────────────────────────────────────────────────────────────┐ │
-│   │                         CLUSTER                                          │ │
+│   │                         CLUSTER                                         │ │
 │   │   ┌─────────────────────────────────────────────────────────────────┐   │ │
-│   │   │  DRIVER NODE                                                     │   │ │
-│   │   │  • Coordinates work                                              │   │ │
-│   │   │  • Runs your notebook                                            │   │ │
-│   │   │  • Collects results                                              │   │ │
+│   │   │  DRIVER NODE                                                    │   │ │
+│   │   │  • Coordinates work                                             │   │ │
+│   │   │  • Runs your notebook                                           │   │ │
+│   │   │  • Collects results                                             │   │ │
 │   │   └─────────────────────────────────────────────────────────────────┘   │ │
-│   │                              │                                           │ │
+│   │                              │                                          │ │
 │   │              ┌───────────────┼───────────────┐                          │ │
 │   │              ▼               ▼               ▼                          │ │
-│   │   ┌──────────────┐  ┌──────────────┐  ┌──────────────┐                 │ │
-│   │   │ WORKER NODE  │  │ WORKER NODE  │  │ WORKER NODE  │                 │ │
-│   │   │ • Processes  │  │ • Processes  │  │ • Processes  │                 │ │
-│   │   │   data       │  │   data       │  │   data       │                 │ │
-│   │   │ • 4-16 cores │  │ • 4-16 cores │  │ • 4-16 cores │                 │ │
-│   │   └──────────────┘  └──────────────┘  └──────────────┘                 │ │
+│   │   ┌──────────────┐  ┌──────────────┐  ┌──────────────┐                  │ │
+│   │   │ WORKER NODE  │  │ WORKER NODE  │  │ WORKER NODE  │                  │ │
+│   │   │ • Processes  │  │ • Processes  │  │ • Processes  │                  │ │
+│   │   │   data       │  │   data       │  │   data       │                  │ │
+│   │   │ • 4-16 cores │  │ • 4-16 cores │  │ • 4-16 cores │                  │ │
+│   │   └──────────────┘  └──────────────┘  └──────────────┘                  │ │
 │   └─────────────────────────────────────────────────────────────────────────┘ │
-│                                                                                 │
-│   CLUSTER MODES:                                                                │
-│   ─────────────                                                                 │
-│   • All-Purpose: Interactive development (stays running)                       │
-│   • Job Cluster: Runs once and terminates (cost-effective)                     │
-│                                                                                 │
-└────────────────────────────────────────────────────────────────────────────────┘
+│                                                                               │
+│   CLUSTER MODES:                                                              │
+│   ─────────────                                                               │
+│   • All-Purpose: Interactive development (stays running)                      │
+│   • Job Cluster: Runs once and terminates (cost-effective)                    │
+│                                                                               │
+└───────────────────────────────────────────────────────────────────────────────┘
 ```
 
 **Cluster Configuration JSON:**
@@ -1739,25 +1924,25 @@ A cluster is a set of virtual machines that work together to process your data. 
 
 **Cluster Best Practices:**
 
-```
+```cluster-sizing-guide
 ┌────────────────────────────────────────────────────────────────────────────────┐
-│                    CLUSTER SIZING GUIDE                                         │
+│                    CLUSTER SIZING GUIDE                                        │
 ├────────────────────────────────────────────────────────────────────────────────┤
-│                                                                                 │
+│                                                                                │
 │   Data Size        Recommended Workers    Node Type                            │
 │   ─────────        ───────────────────    ─────────                            │
 │   < 10 GB          1-2 workers            Standard_DS3_v2                      │
 │   10-100 GB        2-4 workers            Standard_DS4_v2                      │
 │   100 GB - 1 TB    4-8 workers            Standard_DS5_v2                      │
 │   > 1 TB           8+ workers             Standard_E8s_v3                      │
-│                                                                                 │
+│                                                                                │
 │   COST SAVING TIPS:                                                            │
 │   ─────────────────                                                            │
 │   1. Enable autoscaling (min 1, max as needed)                                 │
 │   2. Set auto-termination (30-60 minutes)                                      │
 │   3. Use spot instances for non-critical workloads                             │
 │   4. Use job clusters for production (not all-purpose)                         │
-│                                                                                 │
+│                                                                                │
 └────────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -1791,7 +1976,7 @@ display(df)
 
 # Read Parquet files
 df_customers = spark.read.parquet(
-    "abfss://bronze@stdataengdev001.dfs.core.windows.net/customers/"
+    "abfss://bronze@sa4dataengdev001.dfs.core.windows.net/customers/"
 )
 
 # Show schema
@@ -1817,26 +2002,26 @@ ORDER BY avg_salary DESC
 
 ### 9.6 DBFS - Databricks File System
 
-```
+```dbfs-structure
 ┌────────────────────────────────────────────────────────────────────────────────┐
-│                    DBFS STRUCTURE                                               │
+│                    DBFS STRUCTURE                                              │
 ├────────────────────────────────────────────────────────────────────────────────┤
-│                                                                                 │
-│   /                                                                             │
+│                                                                                │
+│   /                                                                            │
 │   ├── /FileStore/           ← Upload files via UI                              │
 │   │   ├── /tables/          ← Uploaded tables                                  │
 │   │   └── /shared_uploads/  ← Shared files                                     │
-│   │                                                                             │
+│   │                                                                            │
 │   ├── /mnt/                 ← Mounted external storage                         │
 │   │   ├── /bronze/          ← Mount to ADLS bronze container                   │
 │   │   ├── /silver/          ← Mount to ADLS silver container                   │
 │   │   └── /gold/            ← Mount to ADLS gold container                     │
-│   │                                                                             │
+│   │                                                                            │
 │   ├── /user/                ← User-specific directories                        │
 │   │   └── /hive/            ← Hive metastore data                              │
-│   │                                                                             │
+│   │                                                                            │
 │   └── /databricks-datasets/ ← Sample datasets                                  │
-│                                                                                 │
+│                                                                                │
 └────────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -1868,7 +2053,7 @@ dbutils.fs.rm("/path/to/file", recurse=True)
 # ─────────────────────────────────────────────────────────────────────────────
 
 # Configuration
-storage_account = "stdataengdev001"
+storage_account = "sa4dataengdev001"
 container = "bronze"
 mount_point = "/mnt/bronze"
 
@@ -1894,32 +2079,32 @@ display(dbutils.fs.ls(mount_point))
 
 **Access Patterns Comparison:**
 
-```
+```storage-access-patterns
 ┌────────────────────────────────────────────────────────────────────────────────┐
-│                    STORAGE ACCESS PATTERNS                                      │
+│                    STORAGE ACCESS PATTERNS                                     │
 ├────────────────────────────────────────────────────────────────────────────────┤
-│                                                                                 │
+│                                                                                │
 │  METHOD 1: Direct Access (ABFSS)                                               │
 │  ────────────────────────────────                                              │
 │  spark.read.parquet("abfss://container@account.dfs.core.windows.net/path")     │
 │  ✓ Works with Unity Catalog                                                    │
-│  ✓ Modern approach                                                              │
-│  ✗ Long URLs                                                                    │
-│                                                                                 │
-│  METHOD 2: Mount Points                                                         │
-│  ──────────────────────                                                         │
+│  ✓ Modern approach                                                             │
+│  ✗ Long URLs                                                                   │
+│                                                                                │
+│  METHOD 2: Mount Points                                                        │
+│  ──────────────────────                                                        │
 │  spark.read.parquet("/mnt/bronze/path")                                        │
-│  ✓ Simple, short paths                                                          │
+│  ✓ Simple, short paths                                                         │
 │  ✗ Not recommended with Unity Catalog                                          │
-│  ✗ Security concerns (shared credentials)                                       │
-│                                                                                 │
-│  METHOD 3: Unity Catalog External Locations (Recommended)                       │
-│  ─────────────────────────────────────────────────────────                      │
-│  spark.read.table("catalog.schema.table")                                       │
+│  ✗ Security concerns (shared credentials)                                      │
+│                                                                                │
+│  METHOD 3: Unity Catalog External Locations (Recommended)                      │
+│  ─────────────────────────────────────────────────────────                     │
+│  spark.read.table("catalog.schema.table")                                      │
 │  ✓ Best security (fine-grained access)                                         │
-│  ✓ Governance built-in                                                          │
-│  ✓ Modern best practice                                                         │
-│                                                                                 │
+│  ✓ Governance built-in                                                         │
+│  ✓ Modern best practice                                                        │
+│                                                                                │
 └────────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -1929,30 +2114,30 @@ display(dbutils.fs.ls(mount_point))
 
 Delta Lake is an open-source storage layer that brings reliability to data lakes. Think of it as upgrading from a basic filing cabinet to a smart, versioned document management system.
 
-```
+```delta-lake-benefits
 ┌────────────────────────────────────────────────────────────────────────────────┐
-│                    DELTA LAKE BENEFITS                                          │
+│                    DELTA LAKE BENEFITS                                         │
 ├────────────────────────────────────────────────────────────────────────────────┤
-│                                                                                 │
-│   Regular Parquet Files              Delta Lake                                 │
+│                                                                                │
+│   Regular Parquet Files              Delta Lake                                │
 │   ─────────────────────              ──────────                                │
-│                                                                                 │
+│                                                                                │
 │   ┌─────────────────┐               ┌─────────────────┐                        │
 │   │  file1.parquet  │               │  Delta Table    │                        │
 │   │  file2.parquet  │               │  ┌───────────┐  │                        │
-│   │  file3.parquet  │               │  │Transaction│  │ ← ACID transactions   │
+│   │  file3.parquet  │               │  │Transaction│  │ ← ACID transactions    │
 │   └─────────────────┘               │  │   Log     │  │                        │
 │                                     │  └───────────┘  │                        │
 │   ✗ No transactions                 │  ┌───────────┐  │                        │
-│   ✗ No versioning                   │  │ Versions  │  │ ← Time travel         │
+│   ✗ No versioning                   │  │ Versions  │  │ ← Time travel          │
 │   ✗ Inconsistent reads              │  │ v1,v2,v3  │  │                        │
 │   ✗ No schema enforcement           │  └───────────┘  │                        │
 │                                     │  ┌───────────┐  │                        │
-│                                     │  │  Schema   │  │ ← Schema enforcement  │
+│                                     │  │  Schema   │  │ ← Schema enforcement   │
 │                                     │  │Validation │  │                        │
 │                                     │  └───────────┘  │                        │
 │                                     └─────────────────┘                        │
-│                                                                                 │
+│                                                                                │
 └────────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -2079,66 +2264,187 @@ dbutils.widgets.removeAll()                # Clear all
 
 **Simple Explanation:** Unity Catalog is like a librarian for all your data. Just as a library has a catalog system to track every book's location and who can access it, Unity Catalog tracks every table, file, and who has permission to use them.
 
+```unity-catalog-hierarchy
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         UNITY CATALOG HIERARCHY                             │
+│                    (Databricks Lakehouse Data Governance)                   │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                                                                             │
+│                              ┌──────────────┐                               │
+│                              │  METASTORE   │                               │
+│                              └──────┬───────┘                               │
+│                                     │                                       │
+│                    Top-level container (one per region)                     │
+│                    Manages access and metadata for all data                 │
+│                                     │                                       │
+│         ┌───────────────────────────┼───────────────────────────┐           │
+│         │                           │                           │           │
+│         ▼                           ▼                           ▼           │
+│  ┌─────────────┐            ┌─────────────┐            ┌─────────────┐      │
+│  │  CATALOG    │            │  CATALOG    │            │  CATALOG    │      │
+│  │  (dev)      │            │  (staging)  │            │  (prod)     │      │
+│  └──────┬──────┘            └──────┬──────┘            └──────┬──────┘      │
+│         │                          │                          │             │
+│    Database-like container    Groups related schemas    Isolated env        │
+│         │                          │                          │             │
+│    ┌────┼────┐              ┌──────┼──────┐            ┌──────┼──────┐      │
+│    │    │    │              │      │      │            │      │      │      │
+│    ▼    ▼    ▼              ▼      ▼      ▼            ▼      ▼      ▼      │
+│  ┌───┐┌───┐┌───┐          ┌───┐ ┌───┐ ┌───┐        ┌───┐ ┌───┐ ┌───┐        │
+│  │raw││stg││prd│          │raw│ │stg│ │prd│        │raw│ │stg│ │prd│        │
+│  └─┬─┘└─┬─┘└─┬─┘          └─┬─┘ └─┬─┘ └─┬─┘        └─┬─┘ └─┬─┘ └─┬─┘        │
+│    │    │    │              │     │     │            │     │     │          │
+│    │  SCHEMA  │         Namespace for objects    Medallion architecture     │
+│    │(bronze,  │         Examples: bronze, silver, gold                      │
+│    │ silver,  │         raw, staging, production                            │
+│    │  gold)   │                  │                                          │
+│    │          │                  │                                          │
+│    └────┬─────┘                  ▼                                          │
+│         │                                                                   │
+│         └──────────────┬─────────────────────┐                              │
+│                        │                     │                              │
+│                        ▼                     ▼                              │
+│              ┌──────────────────┐  ┌──────────────────┐                     │
+│              │  MANAGED TABLES  │  │ EXTERNAL TABLES  │                     │
+│              └────────┬─────────┘  └────────┬─────────┘                     │
+│                       │                     │                               │
+│         ┌─────────────┼─────────────────────┼─────────────────┐             │
+│         │             │                     │                 │             │
+│         ▼             ▼                     ▼                 ▼             │
+│    ┌────────┐   ┌────────┐           ┌────────┐       ┌──────────┐          │
+│    │ TABLES │   │ VIEWS  │           │ VOLUMES│       │ FUNCTIONS│          │
+│    └────────┘   └────────┘           └────────┘       └──────────┘          │
+│         │             │                     │                 │             │
+│    Delta tables  Logical views      File storage      SQL/Python UDFs       │
+│    Parquet, etc  Security layer     (PDFs, CSVs)      ML models             │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
 ```
-┌────────────────────────────────────────────────────────────────────────────────┐
-│                    UNITY CATALOG HIERARCHY                                      │
-├────────────────────────────────────────────────────────────────────────────────┤
-│                                                                                 │
-│   ┌─────────────────────────────────────────────────────────────────────────┐ │
-│   │                        METASTORE                                         │ │
-│   │   (Top-level container - one per region)                                 │ │
-│   │   └──────────────────────────────────────────────────────────────────┐  │ │
-│   │      │                                                                │  │ │
-│   │      ▼                                                                │  │ │
-│   │   ┌─────────────────────────────────────────────────────────────────┐│  │ │
-│   │   │                      CATALOG                                    ││  │ │
-│   │   │   (Like a database - groups related schemas)                    ││  │ │
-│   │   │   Examples: dev_catalog, prod_catalog, analytics                ││  │ │
-│   │   │   └────────────────────────────────────────────────────────┐   ││  │ │
-│   │   │      │                                                      │   ││  │ │
-│   │   │      ▼                                                      │   ││  │ │
-│   │   │   ┌───────────────────────────────────────────────────────┐│   ││  │ │
-│   │   │   │                    SCHEMA                             ││   ││  │ │
-│   │   │   │   (Namespace for tables/views)                        ││   ││  │ │
-│   │   │   │   Examples: bronze, silver, gold, raw                 ││   ││  │ │
-│   │   │   │   └──────────────────────────────────────────────┐   ││   ││  │ │
-│   │   │   │      │                                            │   ││   ││  │ │
-│   │   │   │      ▼                                            │   ││   ││  │ │
-│   │   │   │   ┌─────────────────────────────────────────────┐│   ││   ││  │ │
-│   │   │   │   │  TABLE / VIEW / FUNCTION / MODEL            ││   ││   ││  │ │
-│   │   │   │   │  Examples: customers, products, orders      ││   ││   ││  │ │
-│   │   │   │   └─────────────────────────────────────────────┘│   ││   ││  │ │
-│   │   │   └───────────────────────────────────────────────────┘   ││   ││  │ │
-│   │   └─────────────────────────────────────────────────────────────┘  ││  │ │
-│   └──────────────────────────────────────────────────────────────────────┘  │ │
-│                                                                                 │
-│   THREE-LEVEL NAMESPACE: catalog.schema.table                                  │
-│   Example: prod_catalog.gold.dim_customers                                     │
-│                                                                                 │
-└────────────────────────────────────────────────────────────────────────────────┘
+
+```three-level-namespace
+┌───────────────────────────────────────────────────────────────────────────────┐
+│                           THREE-LEVEL NAMESPACE                               │
+├───────────────────────────────────────────────────────────────────────────────┤
+│                                                                               │
+│   Format:  <catalog>.<schema>.<object>                                        │
+│                                                                               │
+│   Examples:                                                                   │
+│   • prod_catalog.gold.dim_customers                                           │
+│   • dev_catalog.bronze.raw_sales                                              │
+│   • analytics.silver.fact_orders                                              │
+│   • ml_catalog.features.customer_lifetime_value                               │
+│                                                                               │
+└───────────────────────────────────────────────────────────────────────────────┘
+```
+
+```medallion-architecture
+┌───────────────────────────────────────────────────────────────────────────────┐
+│                        TYPICAL MEDALLION ARCHITECTURE                         │
+├───────────────────────────────────────────────────────────────────────────────┤
+│                                                                               │
+│   CATALOG: production                                                         │
+│   ├── SCHEMA: bronze (raw data)                                               │
+│   │   ├── TABLE: raw_sales                                                    │
+│   │   ├── TABLE: raw_customers                                                │
+│   │   └── VOLUME: source_files/                                               │
+│   │                                                                           │
+│   ├── SCHEMA: silver (cleaned & conformed)                                    │
+│   │   ├── TABLE: stg_sales                                                    │
+│   │   ├── TABLE: stg_customers                                                │
+│   │   └── VIEW: vw_active_customers                                           │
+│   │                                                                           │
+│   └── SCHEMA: gold (business-ready)                                           │
+│       ├── TABLE: dim_customers                                                │
+│       ├── TABLE: dim_products                                                 │
+│       ├── TABLE: fact_sales                                                   │
+│       └── FUNCTION: calculate_customer_ltv                                    │
+│                                                                               │
+└───────────────────────────────────────────────────────────────────────────────┘
+```
+
+```key-characteristics
+┌───────────────────────────────────────────────────────────────────────────────┐
+│                            KEY CHARACTERISTICS                                │
+├───────────────────────────────────────────────────────────────────────────────┤
+│                                                                               │
+│  METASTORE                                                                    │
+│  • One per cloud region                                                       │
+│  • Centralized metadata repository                                            │
+│  • Manages permissions across all catalogs                                    │
+│                                                                               │
+│  CATALOG                                                                      │
+│  • Highest level of data organization                                         │
+│  • Isolates environments (dev/staging/prod)                                   │
+│  • Can be shared across workspaces                                            │
+│  • Supports cross-catalog queries                                             │
+│                                                                               │
+│  SCHEMA (Database)                                                            │
+│  • Groups related tables/views                                                │
+│  • Common pattern: bronze/silver/gold layers                                  │
+│  • Implements data quality tiers                                              │
+│  • Can have different access controls                                         │
+│                                                                               │
+│  TABLES/VIEWS                                                                 │
+│  • Tables: Managed (Unity Catalog controls) or External (you control)         │
+│  • Views: Virtual tables with security/transformation logic                   │
+│  • Volumes: Non-tabular data (files, images, models)                          │
+│  • Functions: Reusable SQL/Python code                                        │
+│                                                                               │
+└───────────────────────────────────────────────────────────────────────────────┘
+```
+
+```governance-security
+┌───────────────────────────────────────────────────────────────────────────────┐
+│                         GOVERNANCE & SECURITY                                 │
+├───────────────────────────────────────────────────────────────────────────────┤
+│                                                                               │
+│  ┌─────────────────────────────────────────────────────────────────────┐      │
+│  │  FINE-GRAINED ACCESS CONTROL                                        │      │
+│  │                                                                     │      │
+│  │  Catalog Level:  GRANT USE CATALOG ON catalog TO user               │      │
+│  │  Schema Level:   GRANT SELECT ON SCHEMA schema TO user              │      │
+│  │  Table Level:    GRANT SELECT ON TABLE table TO user                │      │
+│  │  Column Level:   GRANT SELECT(col1, col2) ON TABLE table TO user    │      │
+│  │  Row Level:      CREATE ROW FILTER ... (using SQL predicates)       │      │
+│  │                                                                     │      │
+│  └─────────────────────────────────────────────────────────────────────┘      │
+│                                                                               │
+│  ┌─────────────────────────────────────────────────────────────────────┐      │
+│  │  DATA LINEAGE                                                       │      │
+│  │                                                                     │      │
+│  │  • Automatic tracking of data flows                                 │      │
+│  │  • Table → Transformation → Table                                   │      │
+│  │  • Supports impact analysis                                         │      │
+│  │  • Audit logs for compliance                                        │      │
+│  │                                                                     │      │
+│  └─────────────────────────────────────────────────────────────────────┘      │
+│                                                                               │
+└───────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ### 10.2 Setting Up Unity Catalog
 
-**Step 1: Create Metastore (Admin Only)**
+#### Step 1: Create Metastore (Admin Only)
 
-```
+```metastore-setup
 ┌────────────────────────────────────────────────────────────────────────────────┐
-│                    METASTORE SETUP                                              │
+│                    METASTORE SETUP                                             │
 ├────────────────────────────────────────────────────────────────────────────────┤
-│                                                                                 │
-│   1. Create Storage Account for Unity Catalog                                   │
+│                                                                                │
+│   1. Create Storage Account for Unity Catalog                                  │
 │      └── Container: "unity-catalog"                                            │
-│                                                                                 │
+│                                                                                │
 │   2. Create Access Connector for Azure Databricks                              │
 │      └── Managed Identity to access storage                                    │
-│                                                                                 │
+│                                                                                │
 │   3. Create Metastore in Databricks Account Console                            │
 │      └── Account Console → Data → Create Metastore                             │
-│                                                                                 │
+│                                                                                │
 │   4. Assign Metastore to Workspace                                             │
 │      └── Metastore → Workspaces → Assign                                       │
-│                                                                                 │
+│                                                                                │
 └────────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -2148,7 +2454,7 @@ dbutils.widgets.removeAll()                # Clear all
 # Create storage account for Unity Catalog
 az storage account create \
     --name "stunitycatalogdev001" \
-    --resource-group "data-eng-rg" \
+    --resource-group "data-engineering-rg" \
     --location "eastus" \
     --sku "Standard_LRS" \
     --kind "StorageV2" \
@@ -2162,7 +2468,7 @@ az storage container create \
 # Create Access Connector
 az databricks access-connector create \
     --name "ac-unity-catalog" \
-    --resource-group "data-eng-rg" \
+    --resource-group "data-engineering-rg" \
     --location "eastus" \
     --identity-type "SystemAssigned"
 ```
@@ -2231,15 +2537,15 @@ CREATE TABLE dev_catalog.bronze.ext_orders (
     total_amount DECIMAL(10,2)
 )
 USING DELTA
-LOCATION 'abfss://bronze@stdataengdev001.dfs.core.windows.net/orders';
+LOCATION 'abfss://bronze@sa4dataengdev001.dfs.core.windows.net/orders';
 ```
 
 ### 10.5 Access Control with Unity Catalog
 
-```
-┌────────────────────────────────────────────────────────────────────────────────┐
+```unity-catalog-permissions
+┌─────────────────────────────────────────────────────────────────────────────────┐
 │                    UNITY CATALOG PERMISSIONS                                    │
-├────────────────────────────────────────────────────────────────────────────────┤
+├─────────────────────────────────────────────────────────────────────────────────┤
 │                                                                                 │
 │   PRIVILEGE HIERARCHY:                                                          │
 │   ────────────────────                                                          │
@@ -2259,7 +2565,7 @@ LOCATION 'abfss://bronze@stdataengdev001.dfs.core.windows.net/orders';
 │   Users                                                                         │
 │          SELECT (read-only)                                                     │
 │                                                                                 │
-└────────────────────────────────────────────────────────────────────────────────┘
+└─────────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ```sql
@@ -2297,7 +2603,7 @@ WITH (
 
 -- Create external location
 CREATE EXTERNAL LOCATION bronze_location
-URL 'abfss://bronze@stdataengdev001.dfs.core.windows.net/'
+URL 'abfss://bronze@sa4dataengdev001.dfs.core.windows.net/'
 WITH (STORAGE CREDENTIAL azure_storage_cred)
 COMMENT 'Bronze layer storage location';
 
@@ -2313,28 +2619,28 @@ GRANT READ FILES, WRITE FILES ON EXTERNAL LOCATION bronze_location TO `data-engi
 
 **Simple Explanation:** Instead of processing data in batches (like doing laundry once a week), streaming processes data continuously as it arrives (like a self-cleaning oven that cleans while you cook).
 
-```
+```batch-vs-streaming
 ┌────────────────────────────────────────────────────────────────────────────────┐
-│                    BATCH vs STREAMING PROCESSING                                │
+│                    BATCH vs STREAMING PROCESSING                               │
 ├────────────────────────────────────────────────────────────────────────────────┤
-│                                                                                 │
-│   BATCH PROCESSING:                                                             │
-│   ─────────────────                                                             │
-│   Files arrive:  📄 📄 📄 📄 📄 📄 📄 📄 📄 📄                                 │
+│                                                                                │
+│   BATCH PROCESSING:                                                            │
+│   ─────────────────                                                            │
+│   Files arrive: 📄 📄 📄 📄 📄 📄 📄 📄 📄 📄                                 │
 │                  └─────────────────────────────┘                               │
-│                              │                                                  │
+│                              │                                                 │
 │                              ▼ Process all at 2AM                              │
 │                  ┌─────────────────────────────┐                               │
 │                  │    Batch Job (Daily)        │                               │
 │                  └─────────────────────────────┘                               │
-│   Latency: Hours                                                                │
-│                                                                                 │
-│   STREAMING PROCESSING:                                                         │
-│   ─────────────────────                                                         │
-│   Files arrive:  📄──▶process──▶📄──▶process──▶📄──▶process                   │
-│                  Continuous processing as data arrives                          │
-│   Latency: Seconds to Minutes                                                   │
-│                                                                                 │
+│   Latency: Hours                                                               │
+│                                                                                │
+│   STREAMING PROCESSING:                                                        │
+│   ─────────────────────                                                        │
+│   Files arrive:  📄──▶process──▶📄──▶process──▶📄──▶process                    │
+│                  Continuous processing as data arrives                         │
+│   Latency: Seconds to Minutes                                                  │
+│                                                                                │
 └────────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -2342,35 +2648,35 @@ GRANT READ FILES, WRITE FILES ON EXTERNAL LOCATION bronze_location TO `data-engi
 
 **Auto Loader** is Databricks' recommended way to ingest files. It automatically discovers new files and processes them incrementally.
 
-```
+```auto-loader-architecture
 ┌────────────────────────────────────────────────────────────────────────────────┐
-│                    AUTO LOADER ARCHITECTURE                                     │
+│                    AUTO LOADER ARCHITECTURE                                    │
 ├────────────────────────────────────────────────────────────────────────────────┤
-│                                                                                 │
-│   Cloud Storage                                                                 │
+│                                                                                │
+│   Cloud Storage                                                                │
 │   ┌─────────────────────────────────────────────┐                              │
 │   │  /landing/                                  │                              │
-│   │    ├── file_001.json  ← Already processed  │                              │
-│   │    ├── file_002.json  ← Already processed  │                              │
-│   │    ├── file_003.json  ← NEW FILE!          │ ◄────┐                       │
-│   │    └── file_004.json  ← NEW FILE!          │      │                       │
+│   │    ├── file_001.json  ← Already processed   │                              │
+│   │    ├── file_002.json  ← Already processed   │                              │
+│   │    ├── file_003.json  ← NEW FILE!           │ ◄────┐                       │
+│   │    └── file_004.json  ← NEW FILE!           │      │                       │
 │   └─────────────────────────────────────────────┘      │                       │
 │                         │                              │                       │
 │                         ▼                              │                       │
-│   ┌─────────────────────────────────────────────┐     │ Checkpoint tracks     │
-│   │              AUTO LOADER                     │     │ processed files       │
-│   │   • Discovers new files automatically       │─────┘                       │
+│   ┌─────────────────────────────────────────────┐      │ Checkpoint tracks     │
+│   │              AUTO LOADER                    │      │ processed files       │
+│   │   • Discovers new files automatically       │──────┘                       │
 │   │   • Tracks progress via checkpointing       │                              │
 │   │   • Handles schema evolution                │                              │
 │   │   • Scales to millions of files             │                              │
 │   └─────────────────────────────────────────────┘                              │
-│                         │                                                       │
-│                         ▼                                                       │
+│                         │                                                      │
+│                         ▼                                                      │
 │   ┌─────────────────────────────────────────────┐                              │
 │   │              DELTA TABLE                    │                              │
 │   │   Only new files appended                   │                              │
 │   └─────────────────────────────────────────────┘                              │
-│                                                                                 │
+│                                                                                │
 └────────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -2381,8 +2687,8 @@ GRANT READ FILES, WRITE FILES ON EXTERNAL LOCATION bronze_location TO `data-engi
 # ─────────────────────────────────────────────────────────────────────────────
 
 # Define the source and checkpoint paths
-source_path = "abfss://landing@stdataengdev001.dfs.core.windows.net/customers/"
-checkpoint_path = "abfss://checkpoints@stdataengdev001.dfs.core.windows.net/customers/"
+source_path = "abfss://landing@sa4dataengdev001.dfs.core.windows.net/customers/"
+checkpoint_path = "abfss://checkpoints@sa4dataengdev001.dfs.core.windows.net/customers/"
 
 # Read streaming data with Auto Loader
 df_stream = (
@@ -2606,30 +2912,31 @@ df_good.writeStream.toTable("bronze.sales_valid")
 df_bad.writeStream.toTable("bronze.sales_errors")
 ```
 
-```
+```streaming-best-practices
 ┌────────────────────────────────────────────────────────────────────────────────┐
-│                    STREAMING BEST PRACTICES                                     │
+│                    STREAMING BEST PRACTICES                                    │
 ├────────────────────────────────────────────────────────────────────────────────┤
-│                                                                                 │
-│  1. ALWAYS use checkpoints                                                      │
+│                                                                                │
+│  1. ALWAYS use checkpoints                                                     │
 │     └── Enables exactly-once processing and recovery                           │
-│                                                                                 │
-│  2. DEFINE schemas explicitly when possible                                     │
+│                                                                                │
+│  2. DEFINE schemas explicitly when possible                                    │
 │     └── Faster startup, predictable behavior                                   │
-│                                                                                 │
-│  3. USE rescue data column for bad records                                      │
+│                                                                                │
+│  3. USE rescue data column for bad records                                     │
 │     └── Don't lose data due to format issues                                   │
-│                                                                                 │
-│  4. SIZE triggers appropriately                                                 │
+│                                                                                │
+│  4. SIZE triggers appropriately                                                │
 │     └── Balance latency vs. throughput                                         │
-│                                                                                 │
-│  5. MONITOR query progress                                                      │
+│                                                                                │
+│  5. MONITOR query progress                                                     │
 │     └── Set up alerts for failed/lagging queries                               │
-│                                                                                 │
-│  6. TEST with availableNow first                                                │
+│                                                                                │
+│  6. TEST with availableNow first                                               │
 │     └── Debug before running continuous                                        │
-│                                                                                 │
+│                                                                                │
 └────────────────────────────────────────────────────────────────────────────────┘
+```
 
 ---
 
@@ -2639,29 +2946,29 @@ df_bad.writeStream.toTable("bronze.sales_errors")
 
 **Simple Explanation:** PySpark is Python's way of talking to Spark. It lets you write Python code that gets executed across many machines in parallel. Think of it as writing instructions that 100 workers follow simultaneously.
 
-```
+```pyspark-data-structures
 ┌────────────────────────────────────────────────────────────────────────────────┐
-│                    PYSPARK DATA STRUCTURES                                      │
+│                    PYSPARK DATA STRUCTURES                                     │
 ├────────────────────────────────────────────────────────────────────────────────┤
-│                                                                                 │
+│                                                                                │
 │   RDD (Resilient Distributed Dataset)                                          │
 │   ───────────────────────────────────                                          │
 │   • Low-level API (rarely used directly)                                       │
-│   • Unstructured data                                                           │
-│   • Full control, but verbose                                                   │
-│                                                                                 │
-│   DataFrame (Most Common)                                                       │
-│   ───────────────────────                                                       │
+│   • Unstructured data                                                          │
+│   • Full control, but verbose                                                  │
+│                                                                                │
+│   DataFrame (Most Common)                                                      │
+│   ───────────────────────                                                      │
 │   • High-level API (like pandas)                                               │
-│   • Structured data with schema                                                 │
+│   • Structured data with schema                                                │
 │   • Optimized by Catalyst optimizer                                            │
 │   • ✓ USE THIS FOR MOST TASKS                                                  │
-│                                                                                 │
-│   Dataset (Scala/Java only)                                                     │
-│   ─────────────────────────                                                     │
-│   • Typed DataFrame                                                             │
-│   • Compile-time type safety                                                    │
-│                                                                                 │
+│                                                                                │
+│   Dataset (Scala/Java only)                                                    │
+│   ─────────────────────────                                                    │
+│   • Typed DataFrame                                                            │
+│   • Compile-time type safety                                                   │
+│                                                                                │
 └────────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -3210,33 +3517,33 @@ df.repartition(10).write.parquet("/path") # 10 files
 
 **Simple Explanation:** Instead of writing separate code for each table or transformation, you write ONE template and use metadata (configuration) to generate the specific code. It's like having a cake recipe template where you just change the flavor ingredients.
 
-```
+```traditional-vs-metadata
 ┌────────────────────────────────────────────────────────────────────────────────┐
-│                    TRADITIONAL vs METADATA-DRIVEN                               │
+│                    TRADITIONAL vs METADATA-DRIVEN                              │
 ├────────────────────────────────────────────────────────────────────────────────┤
-│                                                                                 │
+│                                                                                │
 │   TRADITIONAL APPROACH (50 tables = 50 notebooks):                             │
 │   ────────────────────────────────────────────────                             │
-│   ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐               │
-│   │ customers.py    │  │ products.py     │  │ orders.py       │               │
-│   │ ─────────────   │  │ ─────────────   │  │ ─────────────   │               │
-│   │ df = read()     │  │ df = read()     │  │ df = read()     │               │
-│   │ df = transform()│  │ df = transform()│  │ df = transform()│               │
-│   │ df.write()      │  │ df.write()      │  │ df.write()      │               │
-│   └─────────────────┘  └─────────────────┘  └─────────────────┘               │
+│   ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐                │
+│   │ customers.py    │  │ products.py     │  │ orders.py       │                │
+│   │ ─────────────   │  │ ─────────────   │  │ ─────────────   │                │
+│   │ df = read()     │  │ df = read()     │  │ df = read()     │                │
+│   │ df = transform()│  │ df = transform()│  │ df = transform()│                │
+│   │ df.write()      │  │ df.write()      │  │ df.write()      │                │
+│   └─────────────────┘  └─────────────────┘  └─────────────────┘                │
 │   Problem: Duplicate code, hard to maintain                                    │
-│                                                                                 │
+│                                                                                │
 │   METADATA-DRIVEN APPROACH (1 template + config):                              │
 │   ────────────────────────────────────────────────                             │
-│   ┌─────────────────┐     ┌─────────────────────────────────┐                 │
-│   │ Template.py     │ +   │ metadata.json                   │                 │
-│   │ ─────────────   │     │ ──────────────                  │                 │
-│   │ {source_table}  │     │ [{table: "customers", ...},     │                 │
-│   │ {transforms}    │     │  {table: "products", ...},      │                 │
-│   │ {target_table}  │     │  {table: "orders", ...}]        │                 │
-│   └─────────────────┘     └─────────────────────────────────┘                 │
+│   ┌─────────────────┐     ┌─────────────────────────────────┐                  │
+│   │ Template.py     │ +   │ metadata.json                   │                  │
+│   │ ─────────────   │     │ ──────────────                  │                  │
+│   │ {source_table}  │     │ [{table: "customers", ...},     │                  │
+│   │ {transforms}    │     │  {table: "products", ...},      │                  │
+│   │ {target_table}  │     │  {table: "orders", ...}]        │                  │
+│   └─────────────────┘     └─────────────────────────────────┘                  │
 │   Benefit: Single source of truth, easy updates                                │
-│                                                                                 │
+│                                                                                │
 └────────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -3258,38 +3565,38 @@ print(result)  # Output: Hello, World!
 
 **Jinja2 Syntax Cheat Sheet:**
 
-```
+```jinja2-syntax
 ┌────────────────────────────────────────────────────────────────────────────────┐
-│                    JINJA2 SYNTAX                                                │
+│                    JINJA2 SYNTAX                                               │
 ├────────────────────────────────────────────────────────────────────────────────┤
-│                                                                                 │
-│   VARIABLES:                                                                    │
-│   ──────────                                                                    │
+│                                                                                │
+│   VARIABLES:                                                                   │
+│   ──────────                                                                   │
 │   {{ variable }}              → Output variable value                          │
 │   {{ user.name }}             → Access attribute                               │
 │   {{ items[0] }}              → Access list item                               │
-│                                                                                 │
-│   CONTROL STRUCTURES:                                                           │
-│   ───────────────────                                                           │
+│                                                                                │
+│   CONTROL STRUCTURES:                                                          │
+│   ───────────────────                                                          │
 │   {% for item in items %}     → Loop                                           │
-│   {% endfor %}                                                                  │
-│                                                                                 │
+│   {% endfor %}                                                                 │
+│                                                                                │
 │   {% if condition %}          → Conditional                                    │
-│   {% elif other %}                                                              │
-│   {% else %}                                                                    │
-│   {% endif %}                                                                   │
-│                                                                                 │
-│   FILTERS:                                                                      │
-│   ────────                                                                      │
+│   {% elif other %}                                                             │
+│   {% else %}                                                                   │
+│   {% endif %}                                                                  │
+│                                                                                │
+│   FILTERS:                                                                     │
+│   ────────                                                                     │
 │   {{ name | upper }}          → Uppercase                                      │
 │   {{ name | lower }}          → Lowercase                                      │
 │   {{ items | join(', ') }}    → Join list                                      │
 │   {{ value | default('N/A') }}→ Default value                                  │
-│                                                                                 │
-│   WHITESPACE CONTROL:                                                           │
-│   ───────────────────                                                           │
+│                                                                                │
+│   WHITESPACE CONTROL:                                                          │
+│   ───────────────────                                                          │
 │   {%- ... -%}                 → Trim whitespace                                │
-│                                                                                 │
+│                                                                                │
 └────────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -3671,45 +3978,45 @@ results = pipeline.run_pipeline(
 
 **Simple Explanation:** Dimensional modeling organizes data for easy analysis. Imagine organizing a library: instead of having one giant book with everything, you have a catalog (facts) that references separate sections (dimensions) for authors, genres, and publishers.
 
-```
+```dimensional-modeling
 ┌────────────────────────────────────────────────────────────────────────────────┐
-│                    DIMENSIONAL MODELING CONCEPTS                                │
+│                    DIMENSIONAL MODELING CONCEPTS                               │
 ├────────────────────────────────────────────────────────────────────────────────┤
-│                                                                                 │
+│                                                                                │
 │   FACT TABLE (Measures/Events):                                                │
 │   ─────────────────────────────                                                │
-│   • Contains measurable business metrics                                        │
-│   • Records business events/transactions                                        │
-│   • Has foreign keys to dimension tables                                        │
+│   • Contains measurable business metrics                                       │
+│   • Records business events/transactions                                       │
+│   • Has foreign keys to dimension tables                                       │
 │   • Examples: sales, orders, clicks, transactions                              │
-│                                                                                 │
-│   DIMENSION TABLE (Context/Descriptors):                                        │
-│   ──────────────────────────────────────                                        │
-│   • Contains descriptive attributes                                             │
-│   • Provides context to fact tables                                             │
-│   • Usually smaller than fact tables                                            │
+│                                                                                │
+│   DIMENSION TABLE (Context/Descriptors):                                       │
+│   ──────────────────────────────────────                                       │
+│   • Contains descriptive attributes                                            │
+│   • Provides context to fact tables                                            │
+│   • Usually smaller than fact tables                                           │
 │   • Examples: customers, products, dates, locations                            │
-│                                                                                 │
+│                                                                                │
 └────────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ### 14.2 Star Schema Design
 
-```
-┌────────────────────────────────────────────────────────────────────────────────┐
-│                    STAR SCHEMA EXAMPLE                                          │
-├────────────────────────────────────────────────────────────────────────────────┤
-│                                                                                 │
-│                           ┌─────────────────┐                                  │
-│                           │  dim_customer   │                                  │
-│                           │  ─────────────  │                                  │
-│                           │  customer_key   │◄───┐                             │
-│                           │  customer_id    │    │                             │
-│                           │  customer_name  │    │                             │
-│                           │  email          │    │                             │
-│                           │  city           │    │                             │
-│                           └─────────────────┘    │                             │
-│                                                  │                              │
+```star-schema
+┌───────────────────────────────────────────────────────────────────────────────┐
+│                    STAR SCHEMA EXAMPLE                                        │
+├───────────────────────────────────────────────────────────────────────────────┤
+│                                                                               │
+│                           ┌─────────────────┐                                 │
+│                           │  dim_customer   │                                 │
+│                           │  ─────────────  │                                 │
+│                           │  customer_key   │◄──┐                             │
+│                           │  customer_id    │   │                             │
+│                           │  customer_name  │   │                             │
+│                           │  email          │   │                             │
+│                           │  city           │   │                             │
+│                           └─────────────────┘   │                             │
+│                                                 │                             │
 │   ┌─────────────────┐    ┌─────────────────┐    │    ┌─────────────────┐      │
 │   │   dim_product   │    │   FACT_SALES    │    │    │    dim_date     │      │
 │   │   ───────────   │    │   ───────────   │    │    │   ──────────    │      │
@@ -3717,7 +4024,7 @@ results = pipeline.run_pipeline(
 │   │   product_id    │    │   customer_key  │────┘    │   full_date     │   │  │
 │   │   product_name  │    │   date_key      │─────────│   year          │   │  │
 │   │   category      │    │   store_key     │────┐    │   quarter       │   │  │
-│   │   brand         │    │   ─────────────  │    │    │   month         │   │  │
+│   │   brand         │    │   ───────────── │    │    │   month         │   │  │
 │   └─────────────────┘    │   quantity      │    │    │   day_of_week   │   │  │
 │                          │   unit_price    │    │    └─────────────────┘   │  │
 │                          │   total_amount  │    │                          │  │
@@ -3728,10 +4035,10 @@ results = pipeline.run_pipeline(
 │                                                      │   store_name    │   │  │
 │                                                      │   region        │   │  │
 │                                                      └─────────────────┘   │  │
-│                                                                             │  │
+│                                                                            │  │
 │   The STAR shape: Fact table in center, dimensions around it like points   │  │
-│                                                                             │  │
-└────────────────────────────────────────────────────────────────────────────────┘
+│                                                                            │  │
+└───────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ### 14.3 Creating Dimension Tables
@@ -3833,42 +4140,42 @@ def create_customer_dimension(source_df):
 
 ### 14.4 Understanding Slowly Changing Dimensions
 
-```
-┌────────────────────────────────────────────────────────────────────────────────┐
-│                    SCD TYPES EXPLAINED                                          │
-├────────────────────────────────────────────────────────────────────────────────┤
-│                                                                                 │
-│   SCD TYPE 0 (Retain Original):                                                │
-│   ─────────────────────────────                                                │
-│   Never update dimension attributes. Keep original values forever.             │
-│   Use case: Birth date, original signup date                                   │
-│                                                                                 │
-│   SCD TYPE 1 (Overwrite):                                                      │
-│   ───────────────────────                                                       │
-│   Simply overwrite old values with new values. No history preserved.           │
-│   Use case: Fixing typos, non-critical attributes                              │
-│                                                                                 │
-│   SCD TYPE 2 (Add New Row):                                                    │
-│   ─────────────────────────                                                     │
-│   Create new row for each change. Preserves full history.                      │
-│   Use case: Address changes, status changes, anything needing history          │
-│                                                                                 │
-│   SCD TYPE 3 (Add New Column):                                                 │
-│   ────────────────────────────                                                  │
-│   Add column to store previous value. Limited history (usually 1 prior).       │
-│   Use case: Need current and previous value only                               │
-│                                                                                 │
-│   SCD TYPE 4 (History Table):                                                  │
-│   ────────────────────────────                                                  │
-│   Separate table for history. Main table always current.                       │
-│   Use case: Frequent changes, query performance critical                       │
-│                                                                                 │
-│   SCD TYPE 6 (Hybrid 1+2+3):                                                   │
-│   ──────────────────────────                                                    │
-│   Combines types 1, 2, and 3 for maximum flexibility.                          │
-│   Use case: Need history AND quick access to current values                    │
-│                                                                                 │
-└────────────────────────────────────────────────────────────────────────────────┘
+```scd-types
+┌───────────────────────────────────────────────────────────────────────────────┐
+│                    SCD TYPES EXPLAINED                                        │
+├───────────────────────────────────────────────────────────────────────────────┤
+│                                                                               │
+│   SCD TYPE 0 (Retain Original):                                               │
+│   ─────────────────────────────                                               │
+│   Never update dimension attributes. Keep original values forever.            │
+│   Use case: Birth date, original signup date                                  │
+│                                                                               │
+│   SCD TYPE 1 (Overwrite):                                                     │
+│   ───────────────────────                                                     │
+│   Simply overwrite old values with new values. No history preserved.          │
+│   Use case: Fixing typos, non-critical attributes                             │
+│                                                                               │
+│   SCD TYPE 2 (Add New Row):                                                   │
+│   ─────────────────────────                                                   │
+│   Create new row for each change. Preserves full history.                     │
+│   Use case: Address changes, status changes, anything needing history         │
+│                                                                               │
+│   SCD TYPE 3 (Add New Column):                                                │
+│   ────────────────────────────                                                │
+│   Add column to store previous value. Limited history (usually 1 prior).      │
+│   Use case: Need current and previous value only                              │
+│                                                                               │
+│   SCD TYPE 4 (History Table):                                                 │
+│   ────────────────────────────                                                │
+│   Separate table for history. Main table always current.                      │
+│   Use case: Frequent changes, query performance critical                      │
+│                                                                               │
+│   SCD TYPE 6 (Hybrid 1+2+3):                                                  │
+│   ──────────────────────────                                                  │
+│   Combines types 1, 2, and 3 for maximum flexibility.                         │
+│   Use case: Need history AND quick access to current values                   │
+│                                                                               │
+└───────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ### 14.5 SCD Type 1 Implementation
@@ -4168,35 +4475,35 @@ GROUP BY c.customer_id, c.city, c.effective_start_date, c.effective_end_date
 ORDER BY c.customer_id, c.effective_start_date;
 ```
 
-```
+```star-schema-best-practices
 ┌────────────────────────────────────────────────────────────────────────────────┐
-│                    STAR SCHEMA BEST PRACTICES                                   │
+│                    STAR SCHEMA BEST PRACTICES                                  │
 ├────────────────────────────────────────────────────────────────────────────────┤
-│                                                                                 │
-│  1. USE SURROGATE KEYS                                                          │
+│                                                                                │
+│  1. USE SURROGATE KEYS                                                         │
 │     └── Never use natural keys as primary keys in dimensions                   │
-│     └── Surrogate keys are stable even when business keys change              │
-│                                                                                 │
-│  2. ALWAYS CREATE DIM_DATE                                                      │
+│     └── Surrogate keys are stable even when business keys change               │
+│                                                                                │
+│  2. ALWAYS CREATE DIM_DATE                                                     │
 │     └── Pre-build date dimension with all needed attributes                    │
 │     └── Avoid date calculations at query time                                  │
-│                                                                                 │
-│  3. HANDLE UNKNOWN MEMBERS                                                      │
+│                                                                                │
+│  3. HANDLE UNKNOWN MEMBERS                                                     │
 │     └── Create "-1" or "0" key for missing dimension values                    │
 │     └── Never have NULL foreign keys in fact tables                            │
-│                                                                                 │
-│  4. GRAIN CONSISTENCY                                                           │
+│                                                                                │
+│  4. GRAIN CONSISTENCY                                                          │
 │     └── Define the grain (level of detail) clearly                             │
 │     └── All facts in a fact table should be at the same grain                  │
-│                                                                                 │
-│  5. PREFER ADDITIVE MEASURES                                                    │
+│                                                                                │
+│  5. PREFER ADDITIVE MEASURES                                                   │
 │     └── Store raw values, calculate percentages at query time                  │
 │     └── Makes aggregation simpler and more flexible                            │
-│                                                                                 │
-│  6. PARTITION FACT TABLES                                                       │
+│                                                                                │
+│  6. PARTITION FACT TABLES                                                      │
 │     └── Partition by date_key for large fact tables                            │
 │     └── Improves query performance significantly                               │
-│                                                                                 │
+│                                                                                │
 └────────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -4208,67 +4515,67 @@ ORDER BY c.customer_id, c.effective_start_date;
 
 **Simple Explanation:** Delta Live Tables (DLT) is like hiring an autopilot for your data pipelines. Instead of writing code to handle every detail (errors, retries, dependencies), you just describe WHAT you want, and DLT figures out HOW to do it reliably.
 
-```
+```traditional-vs-dlt
 ┌────────────────────────────────────────────────────────────────────────────────┐
-│                    TRADITIONAL PIPELINES vs DLT                                 │
+│                    TRADITIONAL PIPELINES vs DLT                                │
 ├────────────────────────────────────────────────────────────────────────────────┤
-│                                                                                 │
+│                                                                                │
 │   TRADITIONAL (Imperative - HOW to do it):                                     │
 │   ─────────────────────────────────────────                                    │
-│   • Write code to read data                                                     │
-│   • Handle errors manually                                                      │
-│   • Manage dependencies yourself                                                │
-│   • Write retry logic                                                           │
-│   • Track data quality manually                                                 │
-│   • Manage checkpoints                                                          │
-│                                                                                 │
+│   • Write code to read data                                                    │
+│   • Handle errors manually                                                     │
+│   • Manage dependencies yourself                                               │
+│   • Write retry logic                                                          │
+│   • Track data quality manually                                                │
+│   • Manage checkpoints                                                         │
+│                                                                                │
 │   DLT (Declarative - WHAT you want):                                           │
 │   ──────────────────────────────────                                           │
-│   • Declare transformations                                                     │
-│   • DLT handles errors                                                          │
-│   • DLT resolves dependencies                                                   │
-│   • Automatic retries                                                           │
-│   • Built-in data quality (expectations)                                        │
-│   • Automatic state management                                                  │
-│                                                                                 │
-│   You write:          DLT manages:                                              │
+│   • Declare transformations                                                    │
+│   • DLT handles errors                                                         │
+│   • DLT resolves dependencies                                                  │
+│   • Automatic retries                                                          │
+│   • Built-in data quality (expectations)                                       │
+│   • Automatic state management                                                 │
+│                                                                                │
+│   You write:          DLT manages:                                             │
 │   ┌─────────────┐    ┌─────────────────────────────────────┐                   │
 │   │ SELECT *    │ →  │ Scheduling, Recovery, Monitoring,   │                   │
 │   │ FROM ...    │    │ Dependencies, Retries, Checkpoints  │                   │
 │   └─────────────┘    └─────────────────────────────────────┘                   │
-│                                                                                 │
+│                                                                                │
 └────────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ### 15.2 DLT Core Concepts
 
-```
+```dlt-terminology
 ┌────────────────────────────────────────────────────────────────────────────────┐
-│                    DLT TERMINOLOGY                                              │
+│                    DLT TERMINOLOGY                                             │
 ├────────────────────────────────────────────────────────────────────────────────┤
-│                                                                                 │
-│   PIPELINE                                                                      │
+│                                                                                │
+│   PIPELINE                                                                     │
 │   └── Collection of tables and their transformations                           │
 │       └── Runs as a single unit                                                │
 │       └── Manages dependencies automatically                                   │
-│                                                                                 │
-│   STREAMING TABLE                                                               │
+│                                                                                │
+│   STREAMING TABLE                                                              │
 │   └── Processes data incrementally as it arrives                               │
-│   └── Maintains checkpoints automatically                                       │
+│   └── Maintains checkpoints automatically                                      │
 │   └── Best for: Append-only data, event streams                                │
-│                                                                                 │
-│   MATERIALIZED VIEW                                                             │
+│                                                                                │
+│   MATERIALIZED VIEW                                                            │
 │   └── Recomputes results when source data changes                              │
 │   └── Best for: Aggregations, joins, transformations                           │
-│                                                                                 │
-│   VIEW                                                                          │
+│                                                                                │
+│   VIEW                                                                         │
 │   └── Virtual table (not materialized)                                         │
 │   └── Best for: Intermediate transformations                                   │
-│                                                                                 │
-│   EXPECTATIONS                                                                  │
-│   └── Data quality rules                                                        │
+│                                                                                │
+│   EXPECTATIONS                                                                 │
+│   └── Data quality rules                                                       │
 │   └── Can warn, drop bad records, or fail pipeline                             │
-│                                                                                 │
+│                                                                                │
 └────────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -4392,33 +4699,33 @@ def silver_orders():
 
 ### 15.5 Expectation Types Explained
 
-```
+```dlt-expectations
 ┌────────────────────────────────────────────────────────────────────────────────┐
-│                    DLT EXPECTATION TYPES                                        │
+│                    DLT EXPECTATION TYPES                                       │
 ├────────────────────────────────────────────────────────────────────────────────┤
-│                                                                                 │
+│                                                                                │
 │  @dlt.expect("name", "condition")                                              │
-│  ─────────────────────────────────                                              │
+│  ─────────────────────────────────                                             │
 │  • Behavior: Log warning, keep ALL records                                     │
 │  • Use when: Data quality issues are acceptable, want visibility               │
 │  • Example: @dlt.expect("valid_email", "email LIKE '%@%'")                     │
-│                                                                                 │
+│                                                                                │
 │  @dlt.expect_or_drop("name", "condition")                                      │
-│  ─────────────────────────────────────────                                      │
+│  ─────────────────────────────────────────                                     │
 │  • Behavior: Drop records that fail the check                                  │
 │  • Use when: Bad records should be excluded but pipeline continues             │
 │  • Example: @dlt.expect_or_drop("has_id", "id IS NOT NULL")                    │
-│                                                                                 │
+│                                                                                │
 │  @dlt.expect_or_fail("name", "condition")                                      │
-│  ─────────────────────────────────────────                                      │
+│  ─────────────────────────────────────────                                     │
 │  • Behavior: Fail entire pipeline if ANY record fails                          │
 │  • Use when: Critical data quality rules that cannot be violated               │
 │  • Example: @dlt.expect_or_fail("unique_pk", "id IS NOT NULL")                 │
-│                                                                                 │
+│                                                                                │
 │  @dlt.expect_all({"name1": "cond1", "name2": "cond2"})                         │
-│  ─────────────────────────────────────────────────────                          │
+│  ─────────────────────────────────────────────────────                         │
 │  • Apply multiple expectations at once                                         │
-│                                                                                 │
+│                                                                                │
 └────────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -4592,36 +4899,36 @@ dlt.apply_changes(
 
 ### 15.9 DLT Pipeline Modes
 
-```
+```dlt-pipeline-modes
 ┌────────────────────────────────────────────────────────────────────────────────┐
-│                    DLT PIPELINE MODES                                           │
+│                    DLT PIPELINE MODES                                          │
 ├────────────────────────────────────────────────────────────────────────────────┤
-│                                                                                 │
-│   TRIGGERED MODE (Default):                                                     │
-│   ─────────────────────────                                                     │
+│                                                                                │
+│   TRIGGERED MODE (Default):                                                    │
+│   ─────────────────────────                                                    │
 │   • Runs once when manually triggered or scheduled                             │
 │   • Processes all available data then stops                                    │
 │   • Best for: Batch processing, scheduled runs                                 │
-│                                                                                 │
-│   CONTINUOUS MODE:                                                              │
-│   ────────────────                                                              │
-│   • Runs continuously, processing data as it arrives                          │
+│                                                                                │
+│   CONTINUOUS MODE:                                                             │
+│   ────────────────                                                             │
+│   • Runs continuously, processing data as it arrives                           │
 │   • Low latency (near real-time)                                               │
 │   • Best for: Real-time dashboards, streaming use cases                        │
 │   • Set "continuous": true in pipeline config                                  │
-│                                                                                 │
-│   DEVELOPMENT MODE:                                                             │
-│   ──────────────────                                                            │
+│                                                                                │
+│   DEVELOPMENT MODE:                                                            │
+│   ──────────────────                                                           │
 │   • Relaxed cluster termination                                                │
-│   • Easier debugging                                                            │
+│   • Easier debugging                                                           │
 │   • Set "development": true in pipeline config                                 │
-│                                                                                 │
-│   PRODUCTION MODE:                                                              │
-│   ─────────────────                                                             │
-│   • Enhanced monitoring                                                         │
-│   • Automatic retries                                                           │
+│                                                                                │
+│   PRODUCTION MODE:                                                             │
+│   ─────────────────                                                            │
+│   • Enhanced monitoring                                                        │
+│   • Automatic retries                                                          │
 │   • Set "development": false                                                   │
-│                                                                                 │
+│                                                                                │
 └────────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -4666,36 +4973,36 @@ failures = (
 display(failures)
 ```
 
-```
+```dlt-best-practices
 ┌────────────────────────────────────────────────────────────────────────────────┐
-│                    DLT BEST PRACTICES                                           │
+│                    DLT BEST PRACTICES                                          │
 ├────────────────────────────────────────────────────────────────────────────────┤
-│                                                                                 │
-│  1. ORGANIZE BY LAYER                                                           │
+│                                                                                │
+│  1. ORGANIZE BY LAYER                                                          │
 │     └── Separate notebooks for bronze, silver, gold                            │
 │     └── Makes debugging and maintenance easier                                 │
-│                                                                                 │
-│  2. USE EXPECTATIONS WISELY                                                     │
+│                                                                                │
+│  2. USE EXPECTATIONS WISELY                                                    │
 │     └── Bronze: Log only (expect)                                              │
 │     └── Silver: Drop bad records (expect_or_drop)                              │
 │     └── Gold: Fail on critical issues (expect_or_fail)                         │
-│                                                                                 │
-│  3. START WITH TRIGGERED, MOVE TO CONTINUOUS                                    │
+│                                                                                │
+│  3. START WITH TRIGGERED, MOVE TO CONTINUOUS                                   │
 │     └── Develop and test in triggered mode                                     │
 │     └── Switch to continuous only when needed                                  │
-│                                                                                 │
-│  4. MONITOR DATA QUALITY                                                        │
+│                                                                                │
+│  4. MONITOR DATA QUALITY                                                       │
 │     └── Review expectation metrics regularly                                   │
 │     └── Set up alerts for quality degradation                                  │
-│                                                                                 │
-│  5. USE MATERIALIZED VIEWS FOR AGGREGATIONS                                     │
+│                                                                                │
+│  5. USE MATERIALIZED VIEWS FOR AGGREGATIONS                                    │
 │     └── Let DLT handle incremental refresh                                     │
 │     └── More efficient than recomputing everything                             │
-│                                                                                 │
-│  6. VERSION YOUR DLT NOTEBOOKS                                                  │
+│                                                                                │
+│  6. VERSION YOUR DLT NOTEBOOKS                                                 │
 │     └── Use Databricks Repos or Git integration                                │
 │     └── Enables CI/CD for pipelines                                            │
-│                                                                                 │
+│                                                                                │
 └────────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -4707,29 +5014,29 @@ display(failures)
 
 **Simple Explanation:** Asset Bundles (DABs) are like shipping containers for your Databricks projects. Just as shipping containers standardize how goods are packaged and transported, Asset Bundles standardize how you package and deploy notebooks, jobs, and pipelines across environments.
 
-```
+```traditional-vs-asset-bundles
 ┌────────────────────────────────────────────────────────────────────────────────┐
-│                    TRADITIONAL vs ASSET BUNDLES DEPLOYMENT                      │
+│                    TRADITIONAL vs ASSET BUNDLES DEPLOYMENT                     │
 ├────────────────────────────────────────────────────────────────────────────────┤
-│                                                                                 │
-│   TRADITIONAL (Manual):                                                         │
-│   ─────────────────────                                                         │
+│                                                                                │
+│   TRADITIONAL (Manual):                                                        │
+│   ─────────────────────                                                        │
 │   Developer → Copy notebooks manually → Configure jobs in UI → Deploy          │
-│   • Error-prone                                                                 │
+│   • Error-prone                                                                │
 │   • No version control for jobs                                                │
-│   • Hard to replicate across environments                                       │
-│                                                                                 │
-│   ASSET BUNDLES (Automated):                                                    │
-│   ─────────────────────────                                                     │
-│   ┌─────────────┐    ┌─────────────┐    ┌─────────────┐    ┌─────────────┐    │
-│   │    Git      │───▶│   CI/CD     │───▶│   Bundle    │───▶│  Databricks │    │
-│   │   Commit    │    │  Pipeline   │    │   Deploy    │    │  Workspace  │    │
-│   └─────────────┘    └─────────────┘    └─────────────┘    └─────────────┘    │
-│   • Version controlled                                                          │
-│   • Automated deployment                                                        │
+│   • Hard to replicate across environments                                      │
+│                                                                                │
+│   ASSET BUNDLES (Automated):                                                   │
+│   ─────────────────────────                                                    │
+│   ┌─────────────┐    ┌─────────────┐    ┌─────────────┐    ┌─────────────┐     │
+│   │    Git      │───▶│   CI/CD     │───▶│   Bundle    │───▶│  Databricks │     │
+│   │   Commit    │    │  Pipeline   │    │   Deploy    │    │  Workspace  │     │
+│   └─────────────┘    └─────────────┘    └─────────────┘    └─────────────┘     │
+│   • Version controlled                                                         │
+│   • Automated deployment                                                       │
 │   • Environment-specific configs                                               │
-│   • Reproducible                                                                │
-│                                                                                 │
+│   • Reproducible                                                               │
+│                                                                                │
 └────────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -4763,21 +5070,21 @@ databricks workspace list /
 
 ### 16.3 Project Structure
 
-```
+```asset-bundle-structure
 ┌────────────────────────────────────────────────────────────────────────────────┐
-│                    ASSET BUNDLE PROJECT STRUCTURE                               │
+│                    ASSET BUNDLE PROJECT STRUCTURE                              │
 ├────────────────────────────────────────────────────────────────────────────────┤
-│                                                                                 │
-│   my-data-project/                                                              │
-│   │                                                                             │
+│                                                                                │
+│   my-data-project/                                                             │
+│   │                                                                            │
 │   ├── databricks.yml              # Main bundle configuration                  │
-│   │                                                                             │
+│   │                                                                            │
 │   ├── resources/                  # Resource definitions                       │
 │   │   ├── jobs.yml               # Job configurations                          │
-│   │   ├── pipelines.yml          # DLT pipeline configurations                │
+│   │   ├── pipelines.yml          # DLT pipeline configurations                 │
 │   │   └── clusters.yml           # Cluster configurations                      │
-│   │                                                                             │
-│   ├── src/                       # Source code                                  │
+│   │                                                                            │
+│   ├── src/                       # Source code                                 │
 │   │   ├── notebooks/             # Databricks notebooks                        │
 │   │   │   ├── bronze/                                                          │
 │   │   │   ├── silver/                                                          │
@@ -4785,13 +5092,13 @@ databricks workspace list /
 │   │   ├── python/                # Python wheel packages                       │
 │   │   │   └── my_package/                                                      │
 │   │   └── sql/                   # SQL files                                   │
-│   │                                                                             │
+│   │                                                                            │
 │   ├── tests/                     # Unit and integration tests                  │
-│   │                                                                             │
+│   │                                                                            │
 │   └── .github/                   # GitHub Actions workflows                    │
-│       └── workflows/                                                            │
-│           └── deploy.yml                                                        │
-│                                                                                 │
+│       └── workflows/                                                           │
+│           └── deploy.yml                                                       │
+│                                                                                │
 └────────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -5181,43 +5488,43 @@ stages:
 
 ### 16.10 Best Practices
 
-```
+```asset-bundle-best-practices
 ┌────────────────────────────────────────────────────────────────────────────────┐
-│                    ASSET BUNDLES BEST PRACTICES                                 │
+│                    ASSET BUNDLES BEST PRACTICES                                │
 ├────────────────────────────────────────────────────────────────────────────────┤
-│                                                                                 │
-│  1. USE VARIABLES FOR ENVIRONMENT-SPECIFIC VALUES                               │
+│                                                                                │
+│  1. USE VARIABLES FOR ENVIRONMENT-SPECIFIC VALUES                              │
 │     └── Catalog names, paths, cluster sizes                                    │
 │     └── Avoid hardcoding environment-specific values                           │
-│                                                                                 │
-│  2. SEPARATE RESOURCES INTO MULTIPLE FILES                                      │
+│                                                                                │
+│  2. SEPARATE RESOURCES INTO MULTIPLE FILES                                     │
 │     └── jobs.yml, pipelines.yml, clusters.yml                                  │
 │     └── Easier to manage and review                                            │
-│                                                                                 │
-│  3. USE SERVICE PRINCIPALS FOR PRODUCTION                                       │
+│                                                                                │
+│  3. USE SERVICE PRINCIPALS FOR PRODUCTION                                      │
 │     └── Never use personal tokens in production                                │
 │     └── Configure run_as in prod target                                        │
-│                                                                                 │
-│  4. IMPLEMENT PROPER TESTING                                                    │
+│                                                                                │
+│  4. IMPLEMENT PROPER TESTING                                                   │
 │     └── Unit tests for Python code                                             │
 │     └── Integration tests before production deploy                             │
-│                                                                                 │
-│  5. USE ENVIRONMENT PROTECTION RULES                                            │
+│                                                                                │
+│  5. USE ENVIRONMENT PROTECTION RULES                                           │
 │     └── Require approval for production deployments                            │
 │     └── Use GitHub/Azure DevOps environments                                   │
-│                                                                                 │
-│  6. VERSION CONTROL EVERYTHING                                                  │
+│                                                                                │
+│  6. VERSION CONTROL EVERYTHING                                                 │
 │     └── databricks.yml, resources, notebooks                                   │
 │     └── Never modify production resources manually                             │
-│                                                                                 │
-│  7. IMPLEMENT ROLLBACK STRATEGY                                                 │
+│                                                                                │
+│  7. IMPLEMENT ROLLBACK STRATEGY                                                │
 │     └── Tag successful deployments                                             │
 │     └── Have a process to revert to previous version                           │
-│                                                                                 │
-│  8. MONITOR DEPLOYMENTS                                                         │
+│                                                                                │
+│  8. MONITOR DEPLOYMENTS                                                        │
 │     └── Set up alerts for failed deployments                                   │
 │     └── Track deployment history                                               │
-│                                                                                 │
+│                                                                                │
 └────────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -5240,26 +5547,24 @@ Congratulations! You've completed this comprehensive Azure Data Engineering guid
 11. **Delta Live Tables** - Declarative data pipelines
 12. **Asset Bundles** - CI/CD for Databricks
 
-```
+```next-steps
 ┌────────────────────────────────────────────────────────────────────────────────┐
-│                         NEXT STEPS                                              │
+│                         NEXT STEPS                                             │
 ├────────────────────────────────────────────────────────────────────────────────┤
-│                                                                                 │
+│                                                                                │
 │  1. Build a complete project using these concepts                              │
 │  2. Explore Azure Synapse Analytics for enterprise scenarios                   │
 │  3. Learn about data mesh and data products                                    │
 │  4. Implement data quality frameworks                                          │
 │  5. Explore machine learning integration with MLflow                           │
 │  6. Study for Azure Data Engineer certification (DP-203)                       │
-│                                                                                 │
-│  Resources:                                                                     │
+│                                                                                │
+│  Resources:                                                                    │
 │  • Microsoft Learn: https://learn.microsoft.com/azure/                         │
 │  • Databricks Documentation: https://docs.databricks.com/                      │
 │  • Delta Lake: https://delta.io/                                               │
-│                                                                                 │
+│                                                                                │
 └────────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
-
-*This guide is part of a comprehensive 7-hour data engineering course. For the complete video tutorial, visit the original course.*
