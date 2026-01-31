@@ -2067,3 +2067,564 @@ dbutils.widgets.text("name", "default")    # Create widget
 dbutils.widgets.get("name")                # Get value
 dbutils.widgets.removeAll()                # Clear all
 ```
+
+---
+
+## 10. Databricks Unity Catalog
+
+### 10.1 What is Unity Catalog?
+
+**Simple Explanation:** Unity Catalog is like a librarian for all your data. Just as a library has a catalog system to track every book's location and who can access it, Unity Catalog tracks every table, file, and who has permission to use them.
+
+```
+┌────────────────────────────────────────────────────────────────────────────────┐
+│                    UNITY CATALOG HIERARCHY                                      │
+├────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                 │
+│   ┌─────────────────────────────────────────────────────────────────────────┐ │
+│   │                        METASTORE                                         │ │
+│   │   (Top-level container - one per region)                                 │ │
+│   │   └──────────────────────────────────────────────────────────────────┐  │ │
+│   │      │                                                                │  │ │
+│   │      ▼                                                                │  │ │
+│   │   ┌─────────────────────────────────────────────────────────────────┐│  │ │
+│   │   │                      CATALOG                                    ││  │ │
+│   │   │   (Like a database - groups related schemas)                    ││  │ │
+│   │   │   Examples: dev_catalog, prod_catalog, analytics                ││  │ │
+│   │   │   └────────────────────────────────────────────────────────┐   ││  │ │
+│   │   │      │                                                      │   ││  │ │
+│   │   │      ▼                                                      │   ││  │ │
+│   │   │   ┌───────────────────────────────────────────────────────┐│   ││  │ │
+│   │   │   │                    SCHEMA                             ││   ││  │ │
+│   │   │   │   (Namespace for tables/views)                        ││   ││  │ │
+│   │   │   │   Examples: bronze, silver, gold, raw                 ││   ││  │ │
+│   │   │   │   └──────────────────────────────────────────────┐   ││   ││  │ │
+│   │   │   │      │                                            │   ││   ││  │ │
+│   │   │   │      ▼                                            │   ││   ││  │ │
+│   │   │   │   ┌─────────────────────────────────────────────┐│   ││   ││  │ │
+│   │   │   │   │  TABLE / VIEW / FUNCTION / MODEL            ││   ││   ││  │ │
+│   │   │   │   │  Examples: customers, products, orders      ││   ││   ││  │ │
+│   │   │   │   └─────────────────────────────────────────────┘│   ││   ││  │ │
+│   │   │   └───────────────────────────────────────────────────┘   ││   ││  │ │
+│   │   └─────────────────────────────────────────────────────────────┘  ││  │ │
+│   └──────────────────────────────────────────────────────────────────────┘  │ │
+│                                                                                 │
+│   THREE-LEVEL NAMESPACE: catalog.schema.table                                  │
+│   Example: prod_catalog.gold.dim_customers                                     │
+│                                                                                 │
+└────────────────────────────────────────────────────────────────────────────────┘
+```
+
+### 10.2 Setting Up Unity Catalog
+
+**Step 1: Create Metastore (Admin Only)**
+
+```
+┌────────────────────────────────────────────────────────────────────────────────┐
+│                    METASTORE SETUP                                              │
+├────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                 │
+│   1. Create Storage Account for Unity Catalog                                   │
+│      └── Container: "unity-catalog"                                            │
+│                                                                                 │
+│   2. Create Access Connector for Azure Databricks                              │
+│      └── Managed Identity to access storage                                    │
+│                                                                                 │
+│   3. Create Metastore in Databricks Account Console                            │
+│      └── Account Console → Data → Create Metastore                             │
+│                                                                                 │
+│   4. Assign Metastore to Workspace                                             │
+│      └── Metastore → Workspaces → Assign                                       │
+│                                                                                 │
+└────────────────────────────────────────────────────────────────────────────────┘
+```
+
+**Azure CLI Setup:**
+
+```bash
+# Create storage account for Unity Catalog
+az storage account create \
+    --name "stunitycatalogdev001" \
+    --resource-group "data-eng-rg" \
+    --location "eastus" \
+    --sku "Standard_LRS" \
+    --kind "StorageV2" \
+    --hierarchical-namespace true
+
+# Create container
+az storage container create \
+    --name "unity-catalog" \
+    --account-name "stunitycatalogdev001"
+
+# Create Access Connector
+az databricks access-connector create \
+    --name "ac-unity-catalog" \
+    --resource-group "data-eng-rg" \
+    --location "eastus" \
+    --identity-type "SystemAssigned"
+```
+
+### 10.3 Creating Catalogs and Schemas
+
+```sql
+-- Create a catalog
+-- ─────────────────────────────────────────────────────────────────────────────
+CREATE CATALOG IF NOT EXISTS dev_catalog
+COMMENT 'Development environment catalog';
+
+-- Use the catalog
+USE CATALOG dev_catalog;
+
+-- Create schemas (following medallion architecture)
+CREATE SCHEMA IF NOT EXISTS bronze
+COMMENT 'Raw data landing zone';
+
+CREATE SCHEMA IF NOT EXISTS silver
+COMMENT 'Cleaned and validated data';
+
+CREATE SCHEMA IF NOT EXISTS gold
+COMMENT 'Business-ready aggregated data';
+
+-- View all catalogs
+SHOW CATALOGS;
+
+-- View schemas in current catalog
+SHOW SCHEMAS;
+```
+
+### 10.4 Managing Tables in Unity Catalog
+
+```sql
+-- Create a managed table (Unity Catalog manages storage)
+-- ─────────────────────────────────────────────────────────────────────────────
+CREATE TABLE dev_catalog.bronze.raw_customers (
+    customer_id INT,
+    first_name STRING,
+    last_name STRING,
+    email STRING,
+    created_date TIMESTAMP
+)
+USING DELTA
+COMMENT 'Raw customer data from source system';
+
+-- Create table from DataFrame (PySpark)
+-- ─────────────────────────────────────────────────────────────────────────────
+```
+
+```python
+# PySpark: Save DataFrame as Unity Catalog table
+df.write.format("delta") \
+    .mode("overwrite") \
+    .saveAsTable("dev_catalog.silver.customers")
+```
+
+```sql
+-- Create external table (you manage storage location)
+-- ─────────────────────────────────────────────────────────────────────────────
+CREATE TABLE dev_catalog.bronze.ext_orders (
+    order_id INT,
+    customer_id INT,
+    order_date DATE,
+    total_amount DECIMAL(10,2)
+)
+USING DELTA
+LOCATION 'abfss://bronze@stdataengdev001.dfs.core.windows.net/orders';
+```
+
+### 10.5 Access Control with Unity Catalog
+
+```
+┌────────────────────────────────────────────────────────────────────────────────┐
+│                    UNITY CATALOG PERMISSIONS                                    │
+├────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                 │
+│   PRIVILEGE HIERARCHY:                                                          │
+│   ────────────────────                                                          │
+│                                                                                 │
+│   Metastore Owner                                                               │
+│        │ CREATE CATALOG                                                         │
+│        ▼                                                                        │
+│   Catalog Owner/Admin                                                           │
+│        │ CREATE SCHEMA, USE CATALOG                                             │
+│        ▼                                                                        │
+│   Schema Owner                                                                  │
+│        │ CREATE TABLE, USE SCHEMA                                               │
+│        ▼                                                                        │
+│   Table Owner                                                                   │
+│        │ SELECT, MODIFY                                                         │
+│        ▼                                                                        │
+│   Users                                                                         │
+│          SELECT (read-only)                                                     │
+│                                                                                 │
+└────────────────────────────────────────────────────────────────────────────────┘
+```
+
+```sql
+-- Grant permissions
+-- ─────────────────────────────────────────────────────────────────────────────
+
+-- Grant catalog usage to a group
+GRANT USE CATALOG ON CATALOG dev_catalog TO `data-engineers`;
+
+-- Grant schema usage
+GRANT USE SCHEMA ON SCHEMA dev_catalog.gold TO `data-analysts`;
+
+-- Grant table read access
+GRANT SELECT ON TABLE dev_catalog.gold.dim_customers TO `data-analysts`;
+
+-- Grant full table access
+GRANT ALL PRIVILEGES ON TABLE dev_catalog.silver.customers TO `data-engineers`;
+
+-- View grants
+SHOW GRANTS ON TABLE dev_catalog.gold.dim_customers;
+
+-- Revoke permissions
+REVOKE SELECT ON TABLE dev_catalog.gold.dim_customers FROM `data-analysts`;
+```
+
+### 10.6 External Locations and Storage Credentials
+
+```sql
+-- Create storage credential (admin)
+-- ─────────────────────────────────────────────────────────────────────────────
+CREATE STORAGE CREDENTIAL azure_storage_cred
+WITH (
+    AZURE_MANAGED_IDENTITY = '/subscriptions/{sub-id}/resourceGroups/{rg}/providers/Microsoft.Databricks/accessConnectors/ac-unity-catalog'
+);
+
+-- Create external location
+CREATE EXTERNAL LOCATION bronze_location
+URL 'abfss://bronze@stdataengdev001.dfs.core.windows.net/'
+WITH (STORAGE CREDENTIAL azure_storage_cred)
+COMMENT 'Bronze layer storage location';
+
+-- Grant access to external location
+GRANT READ FILES, WRITE FILES ON EXTERNAL LOCATION bronze_location TO `data-engineers`;
+```
+
+---
+
+## 11. Spark Streaming with Databricks Auto Loader
+
+### 11.1 What is Spark Streaming?
+
+**Simple Explanation:** Instead of processing data in batches (like doing laundry once a week), streaming processes data continuously as it arrives (like a self-cleaning oven that cleans while you cook).
+
+```
+┌────────────────────────────────────────────────────────────────────────────────┐
+│                    BATCH vs STREAMING PROCESSING                                │
+├────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                 │
+│   BATCH PROCESSING:                                                             │
+│   ─────────────────                                                             │
+│   Files arrive:  📄 📄 📄 📄 📄 📄 📄 📄 📄 📄                                 │
+│                  └─────────────────────────────┘                               │
+│                              │                                                  │
+│                              ▼ Process all at 2AM                              │
+│                  ┌─────────────────────────────┐                               │
+│                  │    Batch Job (Daily)        │                               │
+│                  └─────────────────────────────┘                               │
+│   Latency: Hours                                                                │
+│                                                                                 │
+│   STREAMING PROCESSING:                                                         │
+│   ─────────────────────                                                         │
+│   Files arrive:  📄──▶process──▶📄──▶process──▶📄──▶process                   │
+│                  Continuous processing as data arrives                          │
+│   Latency: Seconds to Minutes                                                   │
+│                                                                                 │
+└────────────────────────────────────────────────────────────────────────────────┘
+```
+
+### 11.2 What is Auto Loader?
+
+**Auto Loader** is Databricks' recommended way to ingest files. It automatically discovers new files and processes them incrementally.
+
+```
+┌────────────────────────────────────────────────────────────────────────────────┐
+│                    AUTO LOADER ARCHITECTURE                                     │
+├────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                 │
+│   Cloud Storage                                                                 │
+│   ┌─────────────────────────────────────────────┐                              │
+│   │  /landing/                                  │                              │
+│   │    ├── file_001.json  ← Already processed  │                              │
+│   │    ├── file_002.json  ← Already processed  │                              │
+│   │    ├── file_003.json  ← NEW FILE!          │ ◄────┐                       │
+│   │    └── file_004.json  ← NEW FILE!          │      │                       │
+│   └─────────────────────────────────────────────┘      │                       │
+│                         │                              │                       │
+│                         ▼                              │                       │
+│   ┌─────────────────────────────────────────────┐     │ Checkpoint tracks     │
+│   │              AUTO LOADER                     │     │ processed files       │
+│   │   • Discovers new files automatically       │─────┘                       │
+│   │   • Tracks progress via checkpointing       │                              │
+│   │   • Handles schema evolution                │                              │
+│   │   • Scales to millions of files             │                              │
+│   └─────────────────────────────────────────────┘                              │
+│                         │                                                       │
+│                         ▼                                                       │
+│   ┌─────────────────────────────────────────────┐                              │
+│   │              DELTA TABLE                    │                              │
+│   │   Only new files appended                   │                              │
+│   └─────────────────────────────────────────────┘                              │
+│                                                                                 │
+└────────────────────────────────────────────────────────────────────────────────┘
+```
+
+### 11.3 Auto Loader Basic Usage
+
+```python
+# Basic Auto Loader - Read JSON files
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Define the source and checkpoint paths
+source_path = "abfss://landing@stdataengdev001.dfs.core.windows.net/customers/"
+checkpoint_path = "abfss://checkpoints@stdataengdev001.dfs.core.windows.net/customers/"
+
+# Read streaming data with Auto Loader
+df_stream = (
+    spark.readStream
+    .format("cloudFiles")
+    .option("cloudFiles.format", "json")
+    .option("cloudFiles.schemaLocation", checkpoint_path + "schema/")
+    .option("cloudFiles.inferColumnTypes", "true")
+    .load(source_path)
+)
+
+# Add metadata columns
+from pyspark.sql.functions import current_timestamp, input_file_name
+
+df_enriched = df_stream \
+    .withColumn("ingestion_timestamp", current_timestamp()) \
+    .withColumn("source_file", input_file_name())
+
+# Write to Delta table
+(
+    df_enriched.writeStream
+    .format("delta")
+    .option("checkpointLocation", checkpoint_path + "checkpoint/")
+    .option("mergeSchema", "true")
+    .outputMode("append")
+    .trigger(availableNow=True)  # Process all available files and stop
+    .toTable("dev_catalog.bronze.customers")
+)
+```
+
+### 11.4 Auto Loader Options Deep Dive
+
+```python
+# Advanced Auto Loader configuration
+# ─────────────────────────────────────────────────────────────────────────────
+
+df_stream = (
+    spark.readStream
+    .format("cloudFiles")
+
+    # File format options
+    .option("cloudFiles.format", "json")                    # json, csv, parquet, avro
+    .option("cloudFiles.inferColumnTypes", "true")          # Infer data types
+    .option("cloudFiles.schemaHints", "id INT, price DOUBLE")  # Type hints
+
+    # Schema evolution
+    .option("cloudFiles.schemaLocation", "/path/schema/")   # Store inferred schema
+    .option("cloudFiles.schemaEvolutionMode", "addNewColumns")  # Handle new columns
+
+    # File discovery
+    .option("cloudFiles.useNotifications", "true")          # Use cloud events (faster)
+    .option("cloudFiles.maxFilesPerTrigger", 1000)          # Limit files per batch
+    .option("cloudFiles.maxBytesPerTrigger", "10g")         # Limit bytes per batch
+
+    # File patterns
+    .option("pathGlobFilter", "*.json")                     # Only JSON files
+    .option("recursiveFileLookup", "true")                  # Include subdirectories
+
+    .load(source_path)
+)
+```
+
+### 11.5 Different Trigger Modes
+
+```python
+# Trigger modes explained
+# ─────────────────────────────────────────────────────────────────────────────
+
+# 1. AVAILABLE NOW - Process all files and stop (batch-like)
+# Use for: Scheduled jobs, catching up on backlog
+query = (
+    df_stream.writeStream
+    .trigger(availableNow=True)
+    .toTable("bronze.customers")
+)
+
+# 2. PROCESSING TIME - Run at fixed intervals
+# Use for: Near real-time with controlled frequency
+query = (
+    df_stream.writeStream
+    .trigger(processingTime="5 minutes")
+    .toTable("bronze.customers")
+)
+
+# 3. CONTINUOUS - Lowest latency (milliseconds)
+# Use for: True real-time requirements
+query = (
+    df_stream.writeStream
+    .trigger(continuous="1 second")
+    .toTable("bronze.customers")
+)
+
+# 4. DEFAULT (micro-batch) - Process as fast as possible
+# Use for: High throughput streaming
+query = (
+    df_stream.writeStream
+    .toTable("bronze.customers")
+)
+```
+
+### 11.6 Complete Streaming Pipeline Example
+
+```python
+# Complete Auto Loader Pipeline
+# ─────────────────────────────────────────────────────────────────────────────
+
+from pyspark.sql.functions import *
+from pyspark.sql.types import *
+
+# Configuration
+source_path = "abfss://landing@storage.dfs.core.windows.net/sales/"
+checkpoint_base = "abfss://checkpoints@storage.dfs.core.windows.net/sales/"
+
+# Define expected schema (optional but recommended)
+sales_schema = StructType([
+    StructField("order_id", StringType(), True),
+    StructField("customer_id", StringType(), True),
+    StructField("product_id", StringType(), True),
+    StructField("quantity", IntegerType(), True),
+    StructField("unit_price", DoubleType(), True),
+    StructField("order_date", StringType(), True)
+])
+
+# Read stream with Auto Loader
+df_raw = (
+    spark.readStream
+    .format("cloudFiles")
+    .option("cloudFiles.format", "json")
+    .option("cloudFiles.schemaLocation", f"{checkpoint_base}/schema/")
+    .schema(sales_schema)  # Use defined schema
+    .load(source_path)
+)
+
+# Transform the data
+df_transformed = (
+    df_raw
+    # Add metadata
+    .withColumn("ingestion_time", current_timestamp())
+    .withColumn("source_file", input_file_name())
+
+    # Parse and transform
+    .withColumn("order_date", to_date(col("order_date"), "yyyy-MM-dd"))
+    .withColumn("total_amount", col("quantity") * col("unit_price"))
+
+    # Data quality
+    .filter(col("order_id").isNotNull())
+    .filter(col("quantity") > 0)
+)
+
+# Write to Bronze layer
+bronze_query = (
+    df_transformed.writeStream
+    .format("delta")
+    .option("checkpointLocation", f"{checkpoint_base}/bronze_checkpoint/")
+    .outputMode("append")
+    .trigger(availableNow=True)
+    .toTable("dev_catalog.bronze.sales_orders")
+)
+
+# Wait for completion
+bronze_query.awaitTermination()
+```
+
+### 11.7 Monitoring Streaming Queries
+
+```python
+# Monitor streaming query progress
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Start a streaming query
+query = df_stream.writeStream.format("delta").start()
+
+# Check query status
+print(f"Query ID: {query.id}")
+print(f"Query Name: {query.name}")
+print(f"Is Active: {query.isActive}")
+
+# Get recent progress
+for progress in query.recentProgress:
+    print(f"Batch ID: {progress['batchId']}")
+    print(f"Input Rows: {progress['numInputRows']}")
+    print(f"Processing Time: {progress['batchDuration']}ms")
+
+# Stop query gracefully
+query.stop()
+
+# List all active streams
+for stream in spark.streams.active:
+    print(f"Stream: {stream.name}, Status: {stream.status}")
+```
+
+### 11.8 Error Handling in Streaming
+
+```python
+# Rescue data pattern for handling bad records
+# ─────────────────────────────────────────────────────────────────────────────
+
+df_stream = (
+    spark.readStream
+    .format("cloudFiles")
+    .option("cloudFiles.format", "json")
+    .option("cloudFiles.schemaLocation", checkpoint_path)
+
+    # Rescue bad records instead of failing
+    .option("rescuedDataColumn", "_rescued_data")
+
+    # Handle corrupt records
+    .option("mode", "PERMISSIVE")  # Don't fail on bad records
+
+    .load(source_path)
+)
+
+# Separate good and bad records
+df_good = df_stream.filter(col("_rescued_data").isNull())
+df_bad = df_stream.filter(col("_rescued_data").isNotNull())
+
+# Write good records to main table
+df_good.writeStream.toTable("bronze.sales_valid")
+
+# Write bad records to error table for investigation
+df_bad.writeStream.toTable("bronze.sales_errors")
+```
+
+```
+┌────────────────────────────────────────────────────────────────────────────────┐
+│                    STREAMING BEST PRACTICES                                     │
+├────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                 │
+│  1. ALWAYS use checkpoints                                                      │
+│     └── Enables exactly-once processing and recovery                           │
+│                                                                                 │
+│  2. DEFINE schemas explicitly when possible                                     │
+│     └── Faster startup, predictable behavior                                   │
+│                                                                                 │
+│  3. USE rescue data column for bad records                                      │
+│     └── Don't lose data due to format issues                                   │
+│                                                                                 │
+│  4. SIZE triggers appropriately                                                 │
+│     └── Balance latency vs. throughput                                         │
+│                                                                                 │
+│  5. MONITOR query progress                                                      │
+│     └── Set up alerts for failed/lagging queries                               │
+│                                                                                 │
+│  6. TEST with availableNow first                                                │
+│     └── Debug before running continuous                                        │
+│                                                                                 │
+└────────────────────────────────────────────────────────────────────────────────┘
+```
