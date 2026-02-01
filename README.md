@@ -9,6 +9,7 @@
 - [1. Introduction](#1-introduction)
 - [2. Project Architecture](#2-project-architecture)
 - [3. Azure Fundamentals](#3-azure-fundamentals)
+  - [3.5 Azure Storage Account Deep Dive](#35-azure-storage-account-deep-dive)
 - [4. Azure Data Factory Tutorial](#4-azure-data-factory-tutorial)
 - [5. Azure SQL Database as Source](#5-azure-sql-database-as-source)
 - [6. Incremental Ingestion Pipelines](#6-incremental-ingestion-pipelines)
@@ -345,6 +346,212 @@ Examples:
 ├── sql-dataeng-dev-eastus-001     (SQL Database)
 ├── dbw-dataeng-dev-eastus-001     (Databricks)
 └── st-dataeng-dev-eastus-001      (Storage Account)
+```
+
+### 3.5 Azure Storage Account Deep Dive
+
+**Simple Explanation:** Azure Storage Account is like a giant warehouse in the cloud where you can store different types of items - files, tables, queues, and more. Each storage type has its own section, just like a warehouse has different areas for different products.
+
+```azure-storage-account-interface
+┌────────────────────────────────────────────────────────────────────────────────┐
+│                    AZURE STORAGE ACCOUNT INTERFACE                             │
+├────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                │
+│   azure4datastorage | Storage account                                          │
+│   ══════════════════════════════════════                                       │
+│                                                                                │
+│   ┌─────────────────────────────────────────────────────────────────────────┐  │
+│   │  MAIN NAVIGATION MENU                                                   │  │
+│   ├─────────────────────────────────────────────────────────────────────────┤  │
+│   │                                                                         │  │
+│   │  Overview            → Dashboard with metrics, endpoints, keys          │  │
+│   │  Activity log        → Audit trail of all operations                    │  │
+│   │  Tags                → Key-value pairs for organization/billing         │  │
+│   │  Diagnose & solve    → Troubleshooting wizard                           │  │
+│   │  Access Control(IAM) → Role-based permissions (who can do what)         │  │
+│   │  Data migration      → Tools to move data in/out                        │  │
+│   │  Events              → Event Grid triggers (react to changes)           │  │
+│   │  Storage browser     → Visual file explorer (like Windows Explorer)     │  │
+│   │  Partner solutions   → Third-party integrations                         │  │
+│   │  Resource visualizer → Dependency graph view                            │  │
+│   │                                                                         │  │
+│   └─────────────────────────────────────────────────────────────────────────┘  │
+│                                                                                │
+│   ┌─────────────────────────────────────────────────────────────────────────┐  │
+│   │  DATA STORAGE (The 4 Storage Types)                                     │  │
+│   ├─────────────────────────────────────────────────────────────────────────┤  │
+│   │                                                                         │  │
+│   │  Containers (Blob Storage)                                              │  │
+│   │     └── Store unstructured data: files, images, videos, backups         │  │
+│   │     └── Used for: Data lakes, ML datasets, static websites              │  │
+│   │     └── Access tiers: Hot, Cool, Cold, Archive                          │  │
+│   │                                                                         │  │
+│   │  File shares (Azure Files)                                              │  │
+│   │     └── SMB/NFS file shares in the cloud                                │  │
+│   │     └── Used for: Lift-and-shift, shared config, home directories       │  │
+│   │     └── Mount like a network drive on Windows/Linux/Mac                 │  │
+│   │                                                                         │  │
+│   │  Queues (Queue Storage)                                                 │  │
+│   │     └── Message queue for async communication                           │  │
+│   │     └── Used for: Decoupling apps, task scheduling, load leveling       │  │
+│   │     └── FIFO message delivery (up to 64KB per message)                  │  │
+│   │                                                                         │  │
+│   │  Tables (Table Storage)                                                 │  │
+│   │     └── NoSQL key-value store                                           │  │
+│   │     └── Used for: Config data, user data, metadata                      │  │
+│   │     └── Schemaless, scalable, cheap                                     │  │
+│   │                                                                         │  │
+│   └─────────────────────────────────────────────────────────────────────────┘  │
+│                                                                                │
+│   ┌─────────────────────────────────────────────────────────────────────────┐  │
+│   │  SECURITY + NETWORKING                                                  │  │
+│   ├─────────────────────────────────────────────────────────────────────────┤  │
+│   │  • Networking        → Firewalls, VNet, Private endpoints               │  │
+│   │  • Access keys       → Primary/Secondary keys for authentication        │  │
+│   │  • Shared access sig → SAS tokens (time-limited access)                 │  │
+│   │  • Encryption        → Data encryption at rest settings                 │  │
+│   └─────────────────────────────────────────────────────────────────────────┘  │
+│                                                                                │
+│   ┌─────────────────────────────────────────────────────────────────────────┐  │
+│   │  DATA MANAGEMENT                                                        │  │
+│   ├─────────────────────────────────────────────────────────────────────────┤  │
+│   │  • Lifecycle mgmt    → Auto-move data between tiers (Hot→Cool→Archive)  │  │
+│   │  • Replication       → Geo-redundancy settings (LRS, GRS, ZRS)          │  │
+│   │  • Object replication→ Copy blobs across storage accounts               │  │
+│   └─────────────────────────────────────────────────────────────────────────┘  │
+│                                                                                │
+│   ┌─────────────────────────────────────────────────────────────────────────┐  │
+│   │  SETTINGS & MONITORING                                                  │  │
+│   ├─────────────────────────────────────────────────────────────────────────┤  │
+│   │  • Configuration     → Blob access tier, soft delete, versioning        │  │
+│   │  • Monitoring        → Metrics, alerts, diagnostic settings             │  │
+│   │  • Automation        → Runbooks, tasks                                  │  │
+│   └─────────────────────────────────────────────────────────────────────────┘  │
+│                                                                                │
+└────────────────────────────────────────────────────────────────────────────────┘
+```
+
+#### Storage Types Comparison
+
+| Feature | Blob (Containers) | Files | Queues | Tables |
+| --------- | ------------------- | ------- | -------- | -------- |
+| **Use Case** | Unstructured data | File shares | Messaging | NoSQL data |
+| **Access** | REST API, SDKs | SMB, NFS, REST | REST API | REST API, OData |
+| **Max Size** | 190.7 TB per blob | 100 TB per share | 64 KB per msg | 1 MB per entity |
+| **Data Lake** | Yes (ADLS Gen2) | No | No | No |
+| **Hierarchy** | Flat (virtual folders) | True folders | N/A | PartitionKey/RowKey |
+
+#### Container Access Levels
+
+```blob-container-access-levels
+┌────────────────────────────────────────────────────────────────────────────────┐
+│                    BLOB CONTAINER ACCESS LEVELS                                │
+├────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                │
+│  PRIVATE (Default - Most Secure)                                               │
+│  ───────────────────────────────                                               │
+│  • No anonymous access                                                         │
+│  • Requires authentication (keys, SAS, Azure AD)                               │
+│  • Use for: Sensitive data, internal applications                              │
+│                                                                                │
+│  BLOB (Anonymous read for blobs only)                                          │
+│  ─────────────────────────────────────                                         │
+│  • Anyone can read blob content if they know the URL                           │
+│  • Cannot list blobs in container                                              │
+│  • Use for: Public images, downloadable files                                  │
+│                                                                                │
+│  CONTAINER (Anonymous read for container and blobs)                            │
+│  ──────────────────────────────────────────────────                            │
+│  • Anyone can list and read all blobs                                          │
+│  • Use for: Public datasets, open data                                         │
+│  • Security risk - use carefully!                                              │
+│                                                                                │
+└────────────────────────────────────────────────────────────────────────────────┘
+```
+
+#### System Containers
+
+```blob-system-containers
+┌────────────────────────────────────────────────────────────────────────────────┐
+│                    SPECIAL SYSTEM CONTAINERS                                   │
+├────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                │
+│  $logs                                                                         │
+│  └── Storage Analytics logs (read/write/delete operations)                     │
+│  └── Auto-created when logging is enabled                                      │
+│  └── Contains: Requests, auth failures, server errors                          │
+│                                                                                │
+│  $web                                                                          │
+│  └── Static website hosting container                                          │
+│  └── Enable via: Settings → Static website                                     │
+│  └── Root document: index.html, Error: 404.html                                │
+│                                                                                │
+│  $blobchangefeed                                                               │
+│  └── Change feed logs (tracks blob create/modify/delete)                       │
+│  └── Enable via: Data management → Change feed                                 │
+│  └── Useful for: Audit, replication, event processing                          │
+│                                                                                │
+└────────────────────────────────────────────────────────────────────────────────┘
+```
+
+#### Creating Containers via CLI
+
+```bash
+# Create a storage account with hierarchical namespace (Data Lake Gen2)
+az storage account create \
+    --name "azure4datastorage" \
+    --resource-group "data-eng-rg" \
+    --location "eastus" \
+    --sku "Standard_LRS" \
+    --kind "StorageV2" \
+    --hierarchical-namespace true
+
+# Create containers for medallion architecture
+az storage container create --name "bronze" --account-name "azure4datastorage"
+az storage container create --name "silver" --account-name "azure4datastorage"
+az storage container create --name "gold" --account-name "azure4datastorage"
+az storage container create --name "landing" --account-name "azure4datastorage"
+
+# List all containers
+az storage container list --account-name "azure4datastorage" --output table
+
+# Upload a file to container
+az storage blob upload \
+    --account-name "azure4datastorage" \
+    --container-name "landing" \
+    --name "data/customers.csv" \
+    --file "./customers.csv"
+```
+
+#### Storage Account URLs
+
+```storage-account-endpoints
+┌────────────────────────────────────────────────────────────────────────────────┐
+│                    STORAGE ACCOUNT ENDPOINTS                                   │
+├────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                │
+│  Storage Account: azure4datastorage                                            │
+│                                                                                │
+│  Blob Service (Containers):                                                    │
+│  └── https://azure4datastorage.blob.core.windows.net                           │
+│                                                                                │
+│  Data Lake Storage Gen2 (ADLS):                                                │
+│  └── https://azure4datastorage.dfs.core.windows.net                            │
+│  └── abfss://container@azure4datastorage.dfs.core.windows.net/path             │
+│                                                                                │
+│  File Service:                                                                 │
+│  └── https://azure4datastorage.file.core.windows.net                           │
+│                                                                                │
+│  Queue Service:                                                                │
+│  └── https://azure4datastorage.queue.core.windows.net                          │
+│                                                                                │
+│  Table Service:                                                                │
+│  └── https://azure4datastorage.table.core.windows.net                          │
+│                                                                                │
+│  Static Website (if enabled):                                                  │
+│  └── https://azure4datastorage.z13.web.core.windows.net                        │
+│                                                                                │
+└────────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
