@@ -146,16 +146,16 @@ Azure provides a complete ecosystem of tools that work together seamlessly:
 **Simple Explanation:** A Resource Group is like a folder on your computer - you put related resources together.
 
 ```resource-group
-┌─────────────────────────────────────────────┐
-│   Resource Group: "data-engineering-rg"     │
-├─────────────────────────────────────────────┤
-│   ┌─────────────┐   ┌─────────────┐         │
-│   │ Data Factory│   │ Databricks  │         │
-│   └─────────────┘   └─────────────┘         │
-│   ┌─────────────┐   ┌─────────────┐         │
-│   │ SQL Database│   │ Storage Acct│         │
-│   └─────────────┘   └─────────────┘         │
-└─────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────┐
+│   Resource Group: "azure-4-data-engineering-rg"     │
+├─────────────────────────────────────────────────────┤
+│   ┌─────────────┐   ┌─────────────┐                 │
+│   │ Data Factory│   │ Databricks  │                 │
+│   └─────────────┘   └─────────────┘                 │
+│   ┌─────────────┐   ┌─────────────┐                 │
+│   │ SQL Database│   │ Storage Acct│                 │
+│   └─────────────┘   └─────────────┘                 │
+└─────────────────────────────────────────────────────┘
 ```
 
 ### 3.4 Creating Resources via Azure CLI
@@ -166,7 +166,7 @@ az login
 
 # Create Resource Group
 az group create \
-    --name "data-engineering-rg" \
+    --name "azure-4-data-engineering-rg" \
     --location "eastus"
 ```
 
@@ -174,10 +174,10 @@ This will output
 
 ```bash
 {
-  "id": "/subscriptions/XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX/resourceGroups/data-engineering-rg",
+  "id": "/subscriptions/XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX/resourceGroups/azure-4-data-engineering-rg",
   "location": "eastus",
   "managedBy": null,
-  "name": "data-engineering-rg",
+  "name": "azure-4-data-engineering-rg",
   "properties": {
     "provisioningState": "Succeeded"
   },
@@ -189,152 +189,42 @@ This will output
 ```bash
 # Create Storage Account
 az storage account create \
-    --name "sa4dataengdev001" \
-    --resource-group "data-engineering-rg" \
+    --name "sa4dataengineering4rk" \
+    --resource-group "azure-4-data-engineering-rg" \
     --location "eastus" \
-    --sku "Standard_LRS"
+    --sku "Standard_LRS" \
+    --kind "StorageV2" \
+    --hns true \
+    --access-tier "Hot" \
+    --allow-blob-public-access false \
+    --min-tls-version "TLS1_2"
 ```
 
-This will output
+What does each input parameter mean?
 
-```bash
-{
-  "accessTier": "Hot",
-  "accountMigrationInProgress": null,
-  "allowBlobPublicAccess": false,
-  "allowCrossTenantReplication": false,
-  "allowSharedKeyAccess": null,
-  "allowedCopyScope": null,
-  "azureFilesIdentityBasedAuthentication": null,
-  "blobRestoreStatus": null,
-  "creationTime": "2026-01-31T17:46:30.821908+00:00",
-  "customDomain": null,
-  "defaultToOAuthAuthentication": null,
-  "dnsEndpointType": null,
-  "enableExtendedGroups": null,
-  "enableHttpsTrafficOnly": true,
-  "enableNfsV3": null,
-  "encryption": {
-    "encryptionIdentity": null,
-    "keySource": "Microsoft.Storage",
-    "keyVaultProperties": null,
-    "requireInfrastructureEncryption": null,
-    "services": {
-      "blob": {
-        "enabled": true,
-        "keyType": "Account",
-        "lastEnabledTime": "2026-01-31T17:46:31.181285+00:00"
-      },
-      "file": {
-        "enabled": true,
-        "keyType": "Account",
-        "lastEnabledTime": "2026-01-31T17:46:31.181285+00:00"
-      },
-      "queue": null,
-      "table": null
-    }
-  },
-  "extendedLocation": null,
-  "failoverInProgress": null,
-  "geoReplicationStats": null,
-  "id": "/subscriptions/XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX/resourceGroups/data-engineering-rg/providers/Microsoft.Storage/storageAccounts/studentstorageacct001",
-  "identity": null,
-  "immutableStorageWithVersioning": null,
-  "isHnsEnabled": null,
-  "isLocalUserEnabled": null,
-  "isSftpEnabled": null,
-  "isSkuConversionBlocked": null,
-  "keyCreationTime": {
-    "key1": "2026-01-31T17:46:31.165665+00:00",
-    "key2": "2026-01-31T17:46:31.165665+00:00"
-  },
-  "keyPolicy": null,
-  "kind": "StorageV2",
-  "largeFileSharesState": null,
-  "lastGeoFailoverTime": null,
-  "location": "eastus",
-  "minimumTlsVersion": "TLS1_0",
-  "name": "studentstorageacct001",
-  "networkRuleSet": {
-    "bypass": "AzureServices",
-    "defaultAction": "Allow",
-    "ipRules": [],
-    "ipv6Rules": [],
-    "resourceAccessRules": null,
-    "virtualNetworkRules": []
-  },
-  "primaryEndpoints": {
-    "blob": "https://studentstorageacct001.blob.core.windows.net/",
-    "dfs": "https://studentstorageacct001.dfs.core.windows.net/",
-    "file": "https://studentstorageacct001.file.core.windows.net/",
-    "internetEndpoints": null,
-    "microsoftEndpoints": null,
-    "queue": "https://studentstorageacct001.queue.core.windows.net/",
-    "table": "https://studentstorageacct001.table.core.windows.net/",
-    "web": "https://studentstorageacct001.z13.web.core.windows.net/"
-  },
-  "primaryLocation": "eastus",
-  "privateEndpointConnections": [],
-  "provisioningState": "Succeeded",
-  "publicNetworkAccess": null,
-  "resourceGroup": "data-engineering-rg",
-  "routingPreference": null,
-  "sasPolicy": null,
-  "secondaryEndpoints": null,
-  "secondaryLocation": null,
-  "sku": {
-    "name": "Standard_LRS",
-    "tier": "Standard"
-  },
-  "statusOfPrimary": "available",
-  "statusOfSecondary": null,
-  "storageAccountSkuConversionStatus": null,
-  "tags": {},
-  "type": "Microsoft.Storage/storageAccounts"
-}
-```
+- `--name "sa4dataengineering4rk"` - Globally unique name (3-24 chars, lowercase, numbers only)
+- `--resource-group "azure-4-data-engineering-rg"` - Logical container for grouping resources
+- `--location "eastus"` - Physical Azure region (affects latency, compliance, pricing)
+- `--sku "Standard_LRS"` - Performance + Redundancy (Standard HDD, 3 copies in 1 datacenter)
+- `--kind "StorageV2"` - Account type (General-purpose v2 - modern, all features)
+- `--hns true` - Enable Data Lake Gen2 (hierarchical namespace for analytics)
+- `--access-tier "Hot"` - Storage optimization (Hot = frequently accessed data)
+- `--allow-blob-public-access false` - Security: Disable public anonymous access
+- `--min-tls-version "TLS1_2"` - Security: Enforce TLS 1.2+ encryption for connections
 
 ```bash
 # Create Data Factory
 az datafactory create \
-    --name "adf-4-dataeng-dev-001" \
-    --resource-group "data-engineering-rg" \
+    --name "adf-4-data-engineering-rk" \
+    --resource-group "azure-4-data-engineering-rg" \
     --location "eastus"
 ```
 
-This will output
+What does each input parameter mean?
 
-```bash
-{
-  "additionalProperties": null,
-  "createTime": "2026-01-31T17:51:44.433707+00:00",
-  "eTag": "\"3f021a2b-0000-0100-0000-697e41300000\"",
-  "encryption": {
-    "identity": null,
-    "keyName": null,
-    "keyVersion": null,
-    "vaultBaseUrl": null
-  },
-  "globalParameters": null,
-  "id": "/subscriptions/XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX/resourceGroups/data-engineering-rg/providers/Microsoft.DataFactory/factories/adf-student-tutorial-001",
-  "identity": {
-    "principalId": "XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX",
-    "tenantId": "YYYYYYYY-YYYY-YYYY-YYYY-YYYYYYYYYYYY",
-    "type": "SystemAssigned",
-    "userAssignedIdentities": null
-  },
-  "location": "eastus",
-  "name": "adf-student-tutorial-001",
-  "provisioningState": "Succeeded",
-  "publicNetworkAccess": null,
-  "purviewConfiguration": null,
-  "repoConfiguration": null,
-  "resourceGroup": "data-engineering-rg",
-  "tags": {},
-  "type": "Microsoft.DataFactory/factories",
-  "version": "2018-06-01"
-}
-```
+- `--name "adf-4-data-engineering-rk"` - Unique name for Data Factory instance
+- `--resource-group "azure-4-data-engineering-rg"` - Resource Group to contain the Data Factory
+- `--location "eastus"` - Azure region for hosting the Data Factory
 
 ### Naming Convention
 
@@ -342,10 +232,10 @@ This will output
 {resource-type}-{project}-{environment}-{region}-{instance}
 
 Examples:
-├── adf-dataeng-dev-eastus-001     (Data Factory)
-├── sql-dataeng-dev-eastus-001     (SQL Database)
-├── dbw-dataeng-dev-eastus-001     (Databricks)
-└── st-dataeng-dev-eastus-001      (Storage Account)
+├── adf-data-engineering-rk-eastus-001     (Data Factory)
+├── sql-data-engineering-rk-eastus-001     (SQL Database)
+├── dbw-data-engineering-rk-eastus-001     (Databricks)
+└── st-data-engineering-rk-eastus-001      (Storage Account)
 ```
 
 ### 3.5 Azure Storage Account Deep Dive
@@ -357,7 +247,7 @@ Examples:
 │                    AZURE STORAGE ACCOUNT INTERFACE                             │
 ├────────────────────────────────────────────────────────────────────────────────┤
 │                                                                                │
-│   azure4datastorage | Storage account                                          │
+│   sa4data-engineering-rk | Storage account                                     │
 │   ══════════════════════════════════════                                       │
 │                                                                                │
 │   ┌─────────────────────────────────────────────────────────────────────────┐  │
@@ -496,31 +386,26 @@ Examples:
 
 #### Creating Containers via CLI
 
-```bash
-# Create a storage account with hierarchical namespace (Data Lake Gen2)
-az storage account create \
-    --name "azure4datastorage" \
-    --resource-group "data-eng-rg" \
-    --location "eastus" \
-    --sku "Standard_LRS" \
-    --kind "StorageV2" \
-    --hierarchical-namespace true
+we will use the storage account we created earlier called `sa4dataengineering4rk`
 
+```bash
 # Create containers for medallion architecture
-az storage container create --name "bronze" --account-name "azure4datastorage"
-az storage container create --name "silver" --account-name "azure4datastorage"
-az storage container create --name "gold" --account-name "azure4datastorage"
-az storage container create --name "landing" --account-name "azure4datastorage"
+az storage container create --name "bronze" --account-name "sa4dataengineering4rk" --auth-mode login
+az storage container create --name "silver" --account-name "sa4dataengineering4rk" --auth-mode login
+az storage container create --name "gold" --account-name "sa4dataengineering4rk" --auth-mode login
+az storage container create --name "landing" --account-name "sa4dataengineering4rk" --auth-mode login
 
 # List all containers
-az storage container list --account-name "azure4datastorage" --output table
+az storage container list --account-name "sa4dataengineering4rk" --output table --auth-mode login
 
 # Upload a file to container
 az storage blob upload \
-    --account-name "azure4datastorage" \
+    --account-name "sa4dataengineering4rk" \
     --container-name "landing" \
     --name "data/customers.csv" \
-    --file "./customers.csv"
+    --file "data/customers.csv" \
+    --auth-mode key \
+    --overwrite true
 ```
 
 #### Storage Account URLs
@@ -530,26 +415,26 @@ az storage blob upload \
 │                    STORAGE ACCOUNT ENDPOINTS                                   │
 ├────────────────────────────────────────────────────────────────────────────────┤
 │                                                                                │
-│  Storage Account: azure4datastorage                                            │
+│  Storage Account: sa4dataengineering4rk                                            │
 │                                                                                │
 │  Blob Service (Containers):                                                    │
-│  └── https://azure4datastorage.blob.core.windows.net                           │
+│  └── https://sa4dataengineering4rk.blob.core.windows.net                           │
 │                                                                                │
 │  Data Lake Storage Gen2 (ADLS):                                                │
-│  └── https://azure4datastorage.dfs.core.windows.net                            │
-│  └── abfss://container@azure4datastorage.dfs.core.windows.net/path             │
+│  └── https://sa4dataengineering4rk.dfs.core.windows.net                            │
+│  └── abfss://container@sa4dataengineering4rk.dfs.core.windows.net/path             │
 │                                                                                │
 │  File Service:                                                                 │
-│  └── https://azure4datastorage.file.core.windows.net                           │
+│  └── https://sa4dataengineering4rk.file.core.windows.net                           │
 │                                                                                │
 │  Queue Service:                                                                │
-│  └── https://azure4datastorage.queue.core.windows.net                          │
+│  └── https://sa4dataengineering4rk.queue.core.windows.net                          │
 │                                                                                │
 │  Table Service:                                                                │
-│  └── https://azure4datastorage.table.core.windows.net                          │
+│  └── https://sa4dataengineering4rk.table.core.windows.net                          │
 │                                                                                │
 │  Static Website (if enabled):                                                  │
-│  └── https://azure4datastorage.z13.web.core.windows.net                        │
+│  └── https://sa4dataengineering4rk.z13.web.core.windows.net                        │
 │                                                                                │
 └────────────────────────────────────────────────────────────────────────────────┘
 ```
@@ -605,8 +490,8 @@ az storage blob upload \
 2. Click "Create"
 3. Fill in the basics:
    - **Subscription:** Your subscription
-   - **Resource Group:** data-engineering-rg
-   - **Name:** adf-4-dataeng-dev-001
+   - **Resource Group:** azure-4-data-engineering-rg
+   - **Name:** adf-4-data-engineering-rk
    - **Region:** East US
    - **Version:** V2
 
@@ -615,14 +500,14 @@ az storage blob upload \
 ```bash
 # Create Data Factory
 az datafactory create \
-    --name "adf-4-dataeng-dev-001" \
-    --resource-group "data-engineering-rg" \
+    --name "adf-4-data-engineering-rk" \
+    --resource-group "azure-4-data-engineering-rg" \
     --location "eastus"
 
 # Verify creation
 az datafactory show \
-    --name "adf-4-dataeng-dev-001" \
-    --resource-group "data-engineering-rg"
+    --name "adf-4-data-engineering-rk" \
+    --resource-group "azure-4-data-engineering-rg"
 ```
 
 When you run the verification code `az datafactory show` it should output
@@ -639,7 +524,7 @@ When you run the verification code `az datafactory show` it should output
     "vaultBaseUrl": null
   },
   "globalParameters": null,
-  "id": "/subscriptions/XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX/resourceGroups/data-engineering-rg/providers/Microsoft.DataFactory/factories/adf-student-tutorial-001",
+  "id": "/subscriptions/XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX/resourceGroups/azure-4-data-engineering-rg/providers/Microsoft.DataFactory/factories/adf-student-tutorial-001",
   "identity": {
     "principalId": "AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA",
     "tenantId": "BBBBBBBB-BBBB-BBBB-BBBB-BBBBBBBBBBBB",
@@ -652,7 +537,7 @@ When you run the verification code `az datafactory show` it should output
   "publicNetworkAccess": null,
   "purviewConfiguration": null,
   "repoConfiguration": null,
-  "resourceGroup": "data-engineering-rg",
+  "resourceGroup": "azure-4-data-engineering-rg",
   "tags": {},
   "type": "Microsoft.DataFactory/factories",
   "version": "2018-06-01"
@@ -737,7 +622,7 @@ When you run the verification code `az datafactory show` it should output
     "name": "ls_adls_storage",
     "type": "AzureBlobFS",
     "typeProperties": {
-        "url": "https://sa4dataengdev001.dfs.core.windows.net/"
+        "url": "https://sa4dataengineering4rk.dfs.core.windows.net/"
     }
 }
 ```
@@ -1056,7 +941,7 @@ When you run the verification code `az datafactory show` it should output
 # Create SQL Server (logical server)
 az sql server create \
     --name "sql-dataeng-dev-001" \
-    --resource-group "data-engineering-rg" \
+    --resource-group "azure-4-data-engineering-rg" \
     --location "eastus" \
     --admin-user "sqladmin" \
     --admin-password "YourSecurePassword123!"
@@ -1065,14 +950,14 @@ az sql server create \
 az sql db create \
     --name "sqldb-adventureworks" \
     --server "sql-dataeng-dev-001" \
-    --resource-group "data-engineering-rg" \
+    --resource-group "azure-4-data-engineering-rg" \
     --edition "Basic"
 
 # Configure firewall (allow Azure services)
 az sql server firewall-rule create \
     --name "AllowAzureServices" \
     --server "sql-dataeng-dev-001" \
-    --resource-group "data-engineering-rg" \
+    --resource-group "azure-4-data-engineering-rg" \
     --start-ip-address 0.0.0.0 \
     --end-ip-address 0.0.0.0
 ```
@@ -1724,7 +1609,7 @@ VALUES
 # Create Logic App
 az logic workflow create \
     --name "la-adf-notifications" \
-    --resource-group "data-engineering-rg" \
+    --resource-group "azure-4-data-engineering-rg" \
     --location "eastus" \
     --definition @logic-app-definition.json
 ```
@@ -2033,14 +1918,14 @@ az logic workflow create \
 # Create Databricks Workspace
 az databricks workspace create \
     --name "dbw-dataeng-dev-001" \
-    --resource-group "data-engineering-rg" \
+    --resource-group "azure-4-data-engineering-rg" \
     --location "eastus" \
     --sku premium
 
 # Get workspace URL
 az databricks workspace show \
     --name "dbw-dataeng-dev-001" \
-    --resource-group "data-engineering-rg" \
+    --resource-group "azure-4-data-engineering-rg" \
     --query "workspaceUrl" -o tsv
 ```
 
@@ -2183,7 +2068,7 @@ display(df)
 
 # Read Parquet files
 df_customers = spark.read.parquet(
-    "abfss://bronze@sa4dataengdev001.dfs.core.windows.net/customers/"
+    "abfss://bronze@sa4dataengineering4rk.dfs.core.windows.net/customers/"
 )
 
 # Show schema
@@ -2260,7 +2145,7 @@ dbutils.fs.rm("/path/to/file", recurse=True)
 # ─────────────────────────────────────────────────────────────────────────────
 
 # Configuration
-storage_account = "sa4dataengdev001"
+storage_account = "sa4dataengineering4rk"
 container = "bronze"
 mount_point = "/mnt/bronze"
 
@@ -2661,7 +2546,7 @@ dbutils.widgets.removeAll()                # Clear all
 # Create storage account for Unity Catalog
 az storage account create \
     --name "stunitycatalogdev001" \
-    --resource-group "data-engineering-rg" \
+    --resource-group "azure-4-data-engineering-rg" \
     --location "eastus" \
     --sku "Standard_LRS" \
     --kind "StorageV2" \
@@ -2675,7 +2560,7 @@ az storage container create \
 # Create Access Connector
 az databricks access-connector create \
     --name "ac-unity-catalog" \
-    --resource-group "data-engineering-rg" \
+    --resource-group "azure-4-data-engineering-rg" \
     --location "eastus" \
     --identity-type "SystemAssigned"
 ```
@@ -2744,7 +2629,7 @@ CREATE TABLE dev_catalog.bronze.ext_orders (
     total_amount DECIMAL(10,2)
 )
 USING DELTA
-LOCATION 'abfss://bronze@sa4dataengdev001.dfs.core.windows.net/orders';
+LOCATION 'abfss://bronze@sa4dataengineering4rk.dfs.core.windows.net/orders';
 ```
 
 ### 10.5 Access Control with Unity Catalog
@@ -2810,7 +2695,7 @@ WITH (
 
 -- Create external location
 CREATE EXTERNAL LOCATION bronze_location
-URL 'abfss://bronze@sa4dataengdev001.dfs.core.windows.net/'
+URL 'abfss://bronze@sa4dataengineering4rk.dfs.core.windows.net/'
 WITH (STORAGE CREDENTIAL azure_storage_cred)
 COMMENT 'Bronze layer storage location';
 
@@ -2894,8 +2779,8 @@ GRANT READ FILES, WRITE FILES ON EXTERNAL LOCATION bronze_location TO `data-engi
 # ─────────────────────────────────────────────────────────────────────────────
 
 # Define the source and checkpoint paths
-source_path = "abfss://landing@sa4dataengdev001.dfs.core.windows.net/customers/"
-checkpoint_path = "abfss://checkpoints@sa4dataengdev001.dfs.core.windows.net/customers/"
+source_path = "abfss://landing@sa4dataengineering4rk.dfs.core.windows.net/customers/"
+checkpoint_path = "abfss://checkpoints@sa4dataengineering4rk.dfs.core.windows.net/customers/"
 
 # Read streaming data with Auto Loader
 df_stream = (
