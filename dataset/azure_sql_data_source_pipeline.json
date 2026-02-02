@@ -1,0 +1,12 @@
+{
+	"name": "azure_sql_data_source_pipeline",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "azure_db_4_data_engineering",
+			"type": "LinkedServiceReference"
+		},
+		"annotations": [],
+		"type": "AzureSqlTable",
+		"schema": []
+	}
+}
