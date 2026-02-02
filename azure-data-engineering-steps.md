@@ -535,3 +535,61 @@ echo $AZURE_RESOURCE_GROUP
 # If empty, reload
 set -a && source .env && set +a
 ```
+
+## Adding Data to Azure SQL Database
+
+You can run SQL scripts against your Azure SQL Database using several methods:
+
+### Option 1: VS Code with MS SQL Extension (Recommended)
+
+1. **Install the extension**: Search for "SQL Server (mssql)" in VS Code extensions
+
+2. **Connect to your database**:
+   - Open Command Palette: `Cmd + Shift + P` (Mac) or `Ctrl + Shift + P` (Windows)
+   - Type: `MS SQL: Connect`
+   - Enter connection details:
+
+     ```text
+     Server:   sql-server-4-data-engineering.database.windows.net
+     Database: sqldb-4-data-engineering
+     Auth:     SQL Login
+     User:     (from your .env file)
+     Password: (from your .env file)
+     ```
+
+   - Save the connection profile when prompted (e.g., "AzureSpotifyDB")
+
+3. **Run your SQL script**:
+   - Open `sql/spotify_initial_load.sql`
+   - `Cmd + Shift + P` → `MS SQL: Execute Query`
+   - Select your saved connection
+   - **Quick tip**: Right-click in the SQL file and select "Execute Query"
+
+### Option 2: Azure Portal Query Editor
+
+```text
+Azure Portal → SQL Database → Query Editor → Login → Paste & Run
+```
+
+### Option 3: sqlcmd CLI
+
+```bash
+# Install sqlcmd (Mac)
+brew install sqlcmd
+
+# Run a SQL script
+sqlcmd -S "$AZURE_SQL_SERVER_NAME.database.windows.net" \
+       -d "$AZURE_SQL_DATABASE_NAME" \
+       -U "$AZURE_SQL_DATABASE_USER" \
+       -P "$AZURE_SQL_DATABASE_PASSWORD" \
+       -i sql/spotify_initial_load.sql
+```
+
+### Option 4: Azure Data Studio
+
+```bash
+# Install on Mac
+brew install --cask azure-data-studio
+```
+
+Then connect using the same credentials as Option 1.
