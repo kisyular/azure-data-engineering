@@ -16,6 +16,8 @@
 
 **IMPORTANT:** Before running any commands, load your environment variables from `.env` file.
 
+### For Bash/Zsh users
+
 ```bash
 # Load environment variables from .env file
 # Run this at the start of EVERY terminal session
@@ -29,8 +31,41 @@ echo "Storage Account: $AZURE_STORAGE_ACCOUNT_NAME"
 echo "SQL Server: $AZURE_SQL_SERVER_NAME"
 ```
 
-> **Note:** The `set -a` command makes all variables available to subprocesses.
-> Without it, the variables would only exist in the current shell.
+### For Fish shell users
+
+Fish shell doesn't support bash `.env` syntax. Use this helper function:
+
+```bash
+# Option 1: One-liner to load .env (run each time)
+for line in (cat .env | grep -v '^#' | grep '=')
+    set -gx (echo $line | cut -d '=' -f1) (echo $line | cut -d '=' -f2- | tr -d '"')
+end
+
+# Verify variables are loaded
+echo "Resource Group: $AZURE_RESOURCE_GROUP"
+echo "Storage Account: $AZURE_STORAGE_ACCOUNT_NAME"
+echo "SQL Server: $AZURE_SQL_SERVER_NAME"
+```
+
+```bash
+# Option 2: Add this function to ~/.config/fish/config.fish for permanent use
+function loadenv
+    for line in (cat .env | grep -v '^#' | grep '=')
+        set -gx (echo $line | cut -d '=' -f1) (echo $line | cut -d '=' -f2- | tr -d '"')
+    end
+    echo "Loaded .env variables"
+end
+
+# Then just run: loadenv
+```
+
+```fish
+# Option 3: Use bass plugin (if installed) to run bash commands
+# Install: fisher install edc/bass
+bass source .env
+```
+
+> **Note:** The `-gx` flag in fish means global and exported (available to subprocesses).
 
 ---
 
@@ -111,7 +146,7 @@ az storage account create \
 **Flag explanations:**
 
 | Flag | Value | Purpose |
-|------|-------|---------|
+| ------ | ------- | --------- |
 | `--sku` | Standard_LRS | Locally redundant storage (cheapest) |
 | `--kind` | StorageV2 | General-purpose v2 (recommended) |
 | `--hns` | true | Hierarchical namespace = Data Lake Gen2 |
@@ -136,6 +171,17 @@ STORAGE_KEY=$(az storage account keys list \
     --resource-group "$AZURE_RESOURCE_GROUP" \
     --query "[0].value" -o tsv)
 
+echo "Storage Key: $STORAGE_KEY"
+echo "Add this to your .env file as AZURE_STORAGE_ACCOUNT_KEY"
+```
+
+for fish shell users:
+
+```bash
+set STORAGE_KEY (az storage account keys list \
+    --account-name "$AZURE_STORAGE_ACCOUNT_NAME" \
+    --resource-group "$AZURE_RESOURCE_GROUP" \
+    --query "[0].value" -o tsv)
 echo "Storage Key: $STORAGE_KEY"
 echo "Add this to your .env file as AZURE_STORAGE_ACCOUNT_KEY"
 ```
@@ -167,7 +213,7 @@ az datafactory show \
 
 **Access Data Factory Studio:**
 
-```
+```url
 https://adf.azure.com/home?factory=/subscriptions/<sub-id>/resourceGroups/<rg>/providers/Microsoft.DataFactory/factories/<adf-name>
 ```
 
@@ -212,6 +258,17 @@ az storage container list \
     --account-name "$AZURE_STORAGE_ACCOUNT_NAME" \
     --auth-mode login \
     --output table
+```
+
+It should list:
+
+```bash
+Name     Lease Status    Last Modified
+-------  --------------  -------------------------
+bronze                   2026-02-01T05:03:01+00:00
+gold                     2026-02-01T05:06:47+00:00
+landing                  2026-02-01T05:06:56+00:00
+silver                   2026-02-01T05:05:37+00:00
 ```
 
 ---
@@ -259,7 +316,7 @@ az storage blob upload-batch \
 
 **Architecture:**
 
-```
+```architecture
 SQL Server (logical server) → contains → SQL Database
           ↓
     Firewall Rules (who can connect)
@@ -304,7 +361,7 @@ az sql db create \
 **Pricing tiers:**
 
 | Tier | DTU | Storage | Cost/Month | Use Case |
-|------|-----|---------|------------|----------|
+| ------ | ----- | --------- | ------------ | ---------- |
 | Basic | 5 | 2 GB | ~$5 | Learning, dev |
 | Standard S0 | 10 | 250 GB | ~$15 | Small apps |
 | Standard S1 | 20 | 250 GB | ~$30 | Production |
@@ -383,7 +440,7 @@ az resource list \
 **Expected resources:**
 
 | Name | Type |
-|------|------|
+| ------ | ------ |
 | sa4dataengineering4rk | Storage Account |
 | adf-4-data-engineering-rk | Data Factory |
 | sql-server-4-data-engineering | SQL Server |
