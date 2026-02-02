@@ -593,3 +593,114 @@ brew install --cask azure-data-studio
 ```
 
 Then connect using the same credentials as Option 1.
+
+---
+
+## Step 8: Create Linked Services in Data Factory
+
+Linked services are connection strings that allow Data Factory to connect to external data sources.
+
+### 8.1 Create a Linked Service to Azure SQL Database
+
+**Via Data Factory Studio (UI):**
+
+1. **Open Data Factory Studio**:
+   - Go to Azure Portal → Data Factory → Click "Launch Studio"
+
+2. **Navigate to Linked Services**:
+   - Click the "Manage" tab (gear icon on the left sidebar)
+   - Select "Linked services" under "Connections"
+   - Click "+ New"
+
+3. **Select Azure SQL Database**:
+   - Search for "Azure SQL Database"
+   - Click "Continue"
+
+4. **Configure the connection**:
+   - **Name**: `AzureSqlDb_LinkedService`
+   - **Server name**: `sql-server-4-data-engineering.database.windows.net`
+   - **Database name**: `sqldb-4-data-engineering`
+   - **Authentication type**: SQL authentication
+   - **User name**: (from your .env file)
+   - **Password**: (from your .env file)
+   - Click "Test connection" to verify
+   - Click "Create"
+
+**Via Azure CLI:**
+
+```bash
+# Create a JSON definition file for the linked service
+cat > /tmp/sql-linked-service.json << 'EOF'
+{
+    "type": "AzureSqlDatabase",
+    "typeProperties": {
+        "connectionString": "Server=tcp:sql-server-4-data-engineering.database.windows.net,1433;Database=sqldb-4-data-engineering;User ID=real_mfalme;Password=YOUR_PASSWORD;Encrypt=True;Connection Timeout=30"
+    }
+}
+EOF
+
+# Create the linked service
+az datafactory linked-service create \
+    --factory-name "$AZURE_DATA_FACTORY_NAME" \
+    --resource-group "$AZURE_RESOURCE_GROUP" \
+    --name "AzureSqlDb_LinkedService" \
+    --properties @/tmp/sql-linked-service.json
+```
+
+> **Note:** Replace `YOUR_PASSWORD` with your actual password or use Key Vault for production.
+
+### 8.2 Create a Linked Service to Azure Data Lake Storage Gen2
+
+**Via Data Factory Studio (UI):**
+
+1. **Navigate to Linked Services**:
+   - Click the "Manage" tab → "Linked services" → "+ New"
+
+2. **Select Azure Data Lake Storage Gen2**:
+   - Search for "Azure Data Lake Storage Gen2"
+   - Click "Continue"
+
+3. **Configure the connection**:
+   - **Name**: `AzureDataLake_LinkedService`
+   - **Authentication method**: Account key
+   - **Account selection method**: From Azure subscription
+   - **Storage account name**: `sa4dataengineering4rk`
+   - Click "Test connection" to verify
+   - Click "Create"
+
+**Via Azure CLI:**
+
+```bash
+# Create a JSON definition file for the storage linked service
+cat > /tmp/storage-linked-service.json << 'EOF'
+{
+    "type": "AzureBlobFS",
+    "typeProperties": {
+        "url": "https://sa4dataengineering4rk.dfs.core.windows.net",
+        "accountKey": {
+            "type": "SecureString",
+            "value": "YOUR_STORAGE_ACCOUNT_KEY"
+        }
+    }
+}
+EOF
+
+# Create the linked service
+az datafactory linked-service create \
+    --factory-name "$AZURE_DATA_FACTORY_NAME" \
+    --resource-group "$AZURE_RESOURCE_GROUP" \
+    --name "AzureDataLake_LinkedService" \
+    --properties @/tmp/storage-linked-service.json
+```
+
+> **Note:** Replace `YOUR_STORAGE_ACCOUNT_KEY` with your actual key from `.env` or use Managed Identity for production.
+
+### Verify Linked Services
+
+```bash
+# List all linked services in your Data Factory
+az datafactory linked-service list \
+    --factory-name "$AZURE_DATA_FACTORY_NAME" \
+    --resource-group "$AZURE_RESOURCE_GROUP" \
+    --output table
+```
