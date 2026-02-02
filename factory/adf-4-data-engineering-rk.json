@@ -1,0 +1,9 @@
+{
+	"name": "adf-4-data-engineering-rk",
+	"location": "eastus",
+	"identity": {
+		"type": "SystemAssigned",
+		"principalId": "eccf4bdc-a799-4a70-b184-deaa4933edc0",
+		"tenantId": "dd246e4a-5434-4e15-8ae3-91ad9797b209"
+	}
+}
