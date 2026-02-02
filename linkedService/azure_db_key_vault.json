@@ -1,0 +1,11 @@
+{
+	"name": "azure_db_key_vault",
+	"properties": {
+		"description": "Key vault for azure db connections",
+		"annotations": [],
+		"type": "AzureKeyVault",
+		"typeProperties": {
+			"baseUrl": "https://kv4dataengineering.vault.azure.net/"
+		}
+	}
+}
