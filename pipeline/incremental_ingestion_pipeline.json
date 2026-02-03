@@ -7,7 +7,7 @@
 				"type": "Copy",
 				"dependsOn": [
 					{
-						"activity": "current_time_value",
+						"activity": "set_current_cdc_value",
 						"dependencyConditions": [
 							"Succeeded"
 						]
@@ -117,7 +117,7 @@
 				}
 			},
 			{
-				"name": "current_time_value",
+				"name": "set_current_cdc_value",
 				"type": "SetVariable",
 				"dependsOn": [],
 				"policy": {
