@@ -1410,12 +1410,12 @@ az storage blob upload \
 ```bash
 # Fish shell - Create CDC files for all Spotify tables
 for table in dim_user dim_artist dim_track dim_date fact_stream
-    echo '{"cdc_value": "1900-01-01"}' > change_data_capture/{$table}_cdc.json
+    echo '{"cdc_value": "1900-01-01"}' > change_data_capture/$table"_cdc.json"
     az storage blob upload \
         --account-name "$AZURE_STORAGE_ACCOUNT_NAME" \
         --container-name "bronze" \
-        --name "change_data_capture/{$table}_cdc.json" \
-        --file change_data_capture/{$table}_cdc.json \
+        --name "change_data_capture/$table"_cdc.json"" \
+        --file change_data_capture/$table"_cdc.json" \
         --auth-mode key \
         --overwrite
     echo "✓ Created CDC file for $table"
