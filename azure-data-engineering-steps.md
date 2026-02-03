@@ -1294,7 +1294,326 @@ When the condition is **False** (no new records), we delete the empty file:
 
 ---
 
-### Step 9.10: Validate and Debug
+### Step 9.10: Fix CDC Tracking - Separate Files Per Table
+
+**Problem Identified:**
+
+Currently, we're using a single CDC tracking file (`change_data_capture.json`) for all tables. This creates a critical issue:
+
+- Pipeline runs for `dim_user` → Updates `cdc_value` to `2026-02-01T10:00:00Z`
+- Pipeline runs for `dim_product` → Reads `2026-02-01T10:00:00Z` (incorrect!)
+- Result: `dim_product` skips all records before this timestamp, losing data
+
+**Root Cause:** All tables share the same CDC tracking file, so each table's CDC value overwrites the previous one.
+
+**Solution:** Create separate CDC tracking files for each table using dynamic file names based on the table parameter.
+
+---
+
+#### A. Modify Lookup Activity for Table-Specific CDC Files
+
+Update the Lookup activity to read from table-specific CDC files.
+
+1. **Open the pipeline** → Click on **look_up_last_cdc_value** activity
+2. **Go to Settings tab**
+3. **Modify the file parameter**:
+   - Current value: `change_data_capture.json`
+   - New value: Click **Add dynamic content** and enter:
+
+   ```expression
+   @concat(pipeline().parameters.table, '_cdc.json')
+   ```
+
+**Result:**
+
+- For `dim_user`: Reads from `dim_user_cdc.json`
+- For `dim_artist`: Reads from `dim_artist_cdc.json`
+- For `dim_track`: Reads from `dim_track_cdc.json`
+- For `dim_date`: Reads from `dim_date_cdc.json`
+- For `fact_stream`: Reads from `fact_stream_cdc.json`
+
+---
+
+#### B. Modify Update CDC Activity for Table-Specific Files
+
+Update the Copy Data activity that writes CDC values to use table-specific file names.
+
+1. **Navigate to True branch** of `if_new_record_added` activity
+2. **Click on update_last_cdc** Copy Data activity
+3. **Go to Sink tab** → **Dataset properties**
+4. **Modify the file parameter**:
+   - Current value: `change_data_capture.json`
+   - New value: Click **Add dynamic content** and enter:
+
+   ```expression
+   @concat(pipeline().parameters.table, '_cdc.json')
+   ```
+
+**Result:** Each table writes its CDC value to its own dedicated tracking file.
+
+---
+
+#### C. Create Initial CDC Tracking Files for Each Table
+
+Create separate CDC tracking files for each table you plan to ingest.
+
+**For dim_user table:**
+
+```bash
+# Create local file
+echo '{"cdc_value": "1900-01-01"}' > change_data_capture/dim_user_cdc.json
+
+# Upload to Azure
+az storage blob upload \
+    --account-name "$AZURE_STORAGE_ACCOUNT_NAME" \
+    --container-name "bronze" \
+    --name "change_data_capture/dim_user_cdc.json" \
+    --file change_data_capture/dim_user_cdc.json \
+    --auth-mode key \
+    --overwrite
+```
+
+**For dim_track table:**
+
+```bash
+# Create local file
+echo '{"cdc_value": "1900-01-01"}' > change_data_capture/dim_track_cdc.json
+
+# Upload to Azure
+az storage blob upload \
+    --account-name "$AZURE_STORAGE_ACCOUNT_NAME" \
+    --container-name "bronze" \
+    --name "change_data_capture/dim_track_cdc.json" \
+    --file change_data_capture/dim_track_cdc.json \
+    --auth-mode key \
+    --overwrite
+```
+
+**For dim_date table:**
+
+```bash
+# Create local file
+echo '{"cdc_value": "1900-01-01"}' > change_data_capture/dim_date_cdc.json
+
+# Upload to Azure
+az storage blob upload \
+    --account-name "$AZURE_STORAGE_ACCOUNT_NAME" \
+    --container-name "bronze" \
+    --name "change_data_capture/dim_date_cdc.json" \
+    --file change_data_capture/dim_date_cdc.json \
+    --auth-mode key \
+    --overwrite
+```
+
+**Automated approach for multiple tables:**
+
+```bash
+# Fish shell - Create CDC files for all Spotify tables
+for table in dim_user dim_artist dim_track dim_date fact_stream
+    echo '{"cdc_value": "1900-01-01"}' > change_data_capture/{$table}_cdc.json
+    az storage blob upload \
+        --account-name "$AZURE_STORAGE_ACCOUNT_NAME" \
+        --container-name "bronze" \
+        --name "change_data_capture/{$table}_cdc.json" \
+        --file change_data_capture/{$table}_cdc.json \
+        --auth-mode key \
+        --overwrite
+    echo "✓ Created CDC file for $table"
+end
+```
+
+```bash
+# Bash/Zsh - Create CDC files for all Spotify tables
+for table in dim_user dim_artist dim_track dim_date fact_stream; do
+    echo '{"cdc_value": "1900-01-01"}' > change_data_capture/${table}_cdc.json
+    az storage blob upload \
+        --account-name "$AZURE_STORAGE_ACCOUNT_NAME" \
+        --container-name "bronze" \
+        --name "change_data_capture/${table}_cdc.json" \
+        --file change_data_capture/${table}_cdc.json \
+        --auth-mode key \
+        --overwrite
+    echo "✓ Created CDC file for $table"
+done
+```
+
+> **Note:** These are the actual Spotify database tables:
+>
+> - `dim_user` - Spotify users
+> - `dim_artist` - Spotify artists  
+> - `dim_track` - Spotify tracks
+> - `dim_date` - Date dimension
+> - `fact_stream` - Streaming facts/history
+
+---
+
+#### D. Verify CDC File Structure in Azure
+
+```bash
+# List all CDC tracking files
+az storage blob list \
+    --account-name "$AZURE_STORAGE_ACCOUNT_NAME" \
+    --container-name "bronze" \
+    --prefix "change_data_capture/" \
+    --auth-mode key \
+    --output table
+```
+
+**Expected output:**
+
+```output
+Name                                      Blob Type    Length
+----------------------------------------  -----------  --------
+change_data_capture/dim_artist_cdc.json   BlockBlob    29
+change_data_capture/dim_date_cdc.json     BlockBlob    29
+change_data_capture/dim_track_cdc.json    BlockBlob    29
+change_data_capture/dim_user_cdc.json     BlockBlob    29
+change_data_capture/empty.json            BlockBlob    20
+change_data_capture/fact_stream_cdc.json  BlockBlob    29
+```
+
+---
+
+#### E. Test the Pipeline with Different Tables
+
+##### Test Scenario 1: Run for dim_user
+
+1. **Debug the pipeline** with parameters:
+   - `schema`: `dbo`
+   - `table`: `dim_user`
+   - `change_data_capture_column`: `updated_at`
+
+2. **Verify CDC file update:**
+
+   ```bash
+   az storage blob download \
+       --account-name "$AZURE_STORAGE_ACCOUNT_NAME" \
+       --container-name "bronze" \
+       --name "change_data_capture/dim_user_cdc.json" \
+       --file downloaded_dim_user_cdc.json \
+       --auth-mode key
+   
+   cat downloaded_dim_user_cdc.json
+   # Expected: {"cdc_value": "2026-02-03T10:30:45Z"} (actual timestamp from your data)
+   ```
+
+##### Test Scenario 2: Run for dim_artist
+
+1. **Debug the pipeline** with parameters:
+   - `schema`: `dbo`
+   - `table`: `dim_artist`
+   - `change_data_capture_column`: `updated_at`
+
+2. **Verify CDC file update:**
+
+   ```bash
+   az storage blob download \
+       --account-name "$AZURE_STORAGE_ACCOUNT_NAME" \
+       --container-name "bronze" \
+       --name "change_data_capture/dim_artist_cdc.json" \
+       --file downloaded_dim_artist_cdc.json \
+       --auth-mode key
+   
+   cat downloaded_dim_artist_cdc.json
+   # Expected: {"cdc_value": "2026-02-03T11:15:22Z"} (different timestamp)
+   ```
+
+3. **Verify dim_user CDC file remains unchanged:**
+
+   ```bash
+   cat downloaded_dim_user_cdc.json
+   # Should still show: {"cdc_value": "2026-02-03T10:30:45Z"}
+   ```
+
+**Success Criteria:**
+
+- Each table has its own CDC tracking file
+- `dim_user` pipeline updates only `dim_user_cdc.json`
+- `dim_artist` pipeline updates only `dim_artist_cdc.json`
+- CDC values are independent and don't overwrite each other
+
+---
+
+#### F. Configuration Summary
+
+**Before (Single CDC File):**
+
+```log
+Lookup Activity:
+  file: change_data_capture.json
+
+Update CDC Activity:
+  file: change_data_capture.json
+
+Problem: All tables share one CDC value
+```
+
+**After (Table-Specific CDC Files):**
+
+```log
+Lookup Activity:
+  file: @concat(pipeline().parameters.table, '_cdc.json')
+  Examples:
+    - dim_user → dim_user_cdc.json
+    - dim_artist → dim_artist_cdc.json
+    - dim_track → dim_track_cdc.json
+    - fact_stream → fact_stream_cdc.json
+
+Update CDC Activity:
+  file: @concat(pipeline().parameters.table, '_cdc.json')
+  Examples:
+    - dim_user → dim_user_cdc.json
+    - dim_artist → dim_artist_cdc.json
+    - dim_track → dim_track_cdc.json
+    - fact_stream → fact_stream_cdc.json
+
+Solution: Each table has independent CDC tracking
+```
+
+---
+
+#### G. Best Practices
+
+1. **Naming Convention:**
+   - Use consistent pattern: `{table_name}_cdc.json`
+   - Makes it easy to identify and manage CDC files
+
+2. **Initial Values:**
+   - Set to `"1900-01-01"` for historical full load
+   - Or set to current date for incremental-only ingestion
+
+3. **Monitoring:**
+   - Periodically verify CDC files are updating correctly
+   - Check for orphaned CDC files (tables no longer in use)
+
+4. **Reset CDC for a Table:**
+
+   ```bash
+   # Reset dim_user to reload all historical data
+   echo '{"cdc_value": "1900-01-01"}' > reset_cdc.json
+   az storage blob upload \
+       --account-name "$AZURE_STORAGE_ACCOUNT_NAME" \
+       --container-name "bronze" \
+       --name "change_data_capture/dim_user_cdc.json" \
+       --file reset_cdc.json \
+       --auth-mode key \
+       --overwrite
+   ```
+
+5. **Cleanup Old Single CDC File:**
+
+   ```bash
+   # After verifying table-specific CDC files work, delete the old shared file
+   az storage blob delete \
+       --account-name "$AZURE_STORAGE_ACCOUNT_NAME" \
+       --container-name "bronze" \
+       --name "change_data_capture/change_data_capture.json" \
+       --auth-mode key
+   ```
+
+---
+
+### Step 9.11: Validate and Debug
 
 #### Validate Pipeline
 
