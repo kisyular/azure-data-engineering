@@ -3,7 +3,7 @@
 	"properties": {
 		"activities": [
 			{
-				"name": "incremental_ingestion_copy_data",
+				"name": "azure_sql_to_lake",
 				"type": "Copy",
 				"dependsOn": [
 					{
@@ -202,7 +202,7 @@
 				"type": "Script",
 				"dependsOn": [
 					{
-						"activity": "incremental_ingestion_copy_data",
+						"activity": "azure_sql_to_lake",
 						"dependencyConditions": [
 							"Succeeded"
 						]
