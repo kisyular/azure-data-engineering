@@ -865,7 +865,7 @@ This captures the current timestamp for naming the output file.
    - **Variable name**: `current_time_value`
    - **Value**: Click **Add dynamic content** and enter:
 
-   ```
+   ```time
    @utcNow()
    ```
 
@@ -875,7 +875,7 @@ This captures the current timestamp for naming the output file.
 
 This reads incremental data from SQL and writes to Data Lake.
 
-#### A. Add the Activity
+#### A. Add the Activity - Copy Data
 
 1. Drag **Copy Data** activity onto canvas
 2. **Name**: `incremental_ingestion_copy_data`
@@ -923,14 +923,14 @@ This reads incremental data from SQL and writes to Data Lake.
    - Add three parameters:
 
    | Parameter | Type | Default Value |
-   |-----------|------|---------------|
+   | ----------- | ------ | --------------- |
    | `container` | String | (empty) |
    | `folder` | String | (empty) |
    | `file` | String | (empty) |
 
 6. **Configure File Path** (in **Connection** tab):
 
-   ```
+   ```file_path
    Container: @dataset().container
    Directory: @dataset().folder
    File:      @concat(dataset().file, '.parquet')
@@ -948,7 +948,7 @@ Back in the Copy Data **Sink** tab:
   - `folder`: `dim_user`
   - `file`: Click **Add dynamic content**:
   
-  ```
+  ```file_path
   @concat(pipeline().parameters.table, '_', variables('current_time_value'))
   ```
 
@@ -978,7 +978,7 @@ Back in the Copy Data **Sink** tab:
 
 **Expected flow:**
 
-```
+```debug_flow
 ✓ look_up_last_cdc_value   → Reads: {"cdc_value": "1900-01-01"}
 ✓ set_current_time_value    → Sets: "2026-02-01T14:30:00Z"
 ✓ incremental_ingestion_... → Copies records where updated_at > '1900-01-01'
@@ -993,8 +993,8 @@ Back in the Copy Data **Sink** tab:
 **Likely causes:**
 
 1. **Activity dependency order is wrong**
-   - ❌ Copy Data → Lookup (wrong!)
-   - ✓ Lookup → Set Variable → Copy Data (correct!)
+   - Copy Data → Lookup (wrong!)
+   - Lookup → Set Variable → Copy Data (correct!)
 
 2. **JSON field name mismatch**
    - JSON file has: `"change_data_capture_column"`
@@ -1011,7 +1011,7 @@ Back in the Copy Data **Sink** tab:
 
 **Fix**: Check the green arrows (dependencies). Should be:
 
-```
+```pipeline_flow
 Lookup → Set Variable → Copy Data
 ```
 
@@ -1072,11 +1072,11 @@ graph LR
 
 **What you've built:**
 
-- ✅ Reusable pipeline with parameters
-- ✅ Incremental data loading (not full refresh)
-- ✅ Dynamic file naming with timestamps
-- ✅ Tracked CDC state in JSON file
-- ✅ Efficient: Only processes new/changed records
+- Reusable pipeline with parameters
+- Incremental data loading (not full refresh)
+- Dynamic file naming with timestamps
+- Tracked CDC state in JSON file
+- Efficient: Only processes new/changed records
 
 **Next steps:**
 
