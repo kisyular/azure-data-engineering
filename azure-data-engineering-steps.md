@@ -799,7 +799,7 @@ Variables store temporary values during pipeline execution.
 
 1. **Click on canvas background** -> **Variables** tab
 2. **Add Variable**:
-   - **Name**: `current_time_value`
+   - **Name**: `current_cdc_value`
    - **Type**: String
    - **Default value**: (leave empty)
 
@@ -865,10 +865,10 @@ Back in the Lookup activity's **Settings** tab:
 This captures the current timestamp for naming the output file.
 
 1. Drag **Set Variable** activity onto canvas
-2. **Name**: `set_current_time_value`
+2. **Name**: `set_current_cdc_value`
 3. Connect **Lookup** -> **Set Variable** (drag the green arrow)
 4. In **Settings** tab:
-   - **Variable name**: `current_time_value`
+   - **Variable name**: `current_cdc_value`
    - **Value**: Click **Add dynamic content** and enter:
 
    ```time
@@ -955,7 +955,7 @@ Back in the Copy Data **Sink** tab:
   - `file`: Click **Add dynamic content**:
   
   ```file_path
-  @concat(pipeline().parameters.table, '_', variables('current_time_value'))
+  @concat(pipeline().parameters.table, '_', variables('current_cdc_value'))
   ```
 
   This creates files like: `dim_user_2026-02-01T14:30:00Z.parquet`
@@ -1255,7 +1255,7 @@ When the condition is **False** (no new records), we delete the empty file:
    - **file**: Click **Add dynamic content**:
 
      ```expression
-     @concat(pipeline().parameters.table, '_', variables('current_time_value'))
+     @concat(pipeline().parameters.table, '_', variables('current_cdc_value'))
      ```
 
 5. **Logging settings**:
@@ -1790,22 +1790,25 @@ Problem:
   - dim_user already has data from 2026-01-01 to 2026-01-15
   - You backfill from 2026-01-01
   - Result: Two copies of the same data with different timestamps
+```
 
 Solutions:
   A. Delete existing files before backfill:
-     az storage blob delete-batch \
-         --account-name "$AZURE_STORAGE_ACCOUNT_NAME" \
-         --source bronze \
-         --pattern "dim_user/dim_user_*.parquet"
+
+```bash
+az storage blob delete-batch \
+    --account-name "$AZURE_STORAGE_ACCOUNT_NAME" \
+    --source bronze \
+    --pattern "dim_user/dim_user_*.parquet"
+```
   
   B. Use downstream deduplication:
-     - In silver layer, use DISTINCT or ROW_NUMBER()
+     - In silver layer, use `DISTINCT` or `ROW_NUMBER()`
      - Keep only latest version based on ingestion timestamp
-     
+
   C. Load to separate backfill folder:
      - Modify folder parameter: "dim_user_backfill"
      - Merge later with validation
-```
 
 ###### 2. CDC File Behavior
 
@@ -1848,7 +1851,7 @@ Large Backfill (> 6 months):
   - Or use separate full-load pipeline
 ```
 
-##### Best Practices
+###### Best Practices
 
 1. **Document Backfill Operations**
 
@@ -1878,6 +1881,535 @@ Large Backfill (> 6 months):
    - Uses different folder structure
    - Doesn't update CDC files
    - Merge carefully with incremental data
+
+---
+
+### Step 9.12: Update CDC Value After Pipeline Run
+
+~~After a successful pipeline run, you need to update the CDC tracking file with the new timestamp.~~
+
+**Automated Update (Implemented in Steps 9.7-9.8):**
+
+The pipeline automatically updates the CDC tracking file after each successful run:
+
+1. **Script Activity** (`script_get_max_cdc`): Queries the maximum CDC value from source table
+2. **Copy Data Activity** (`update_last_cdc`): Writes the max value to tracking file
+   - **Source**: `bronze/change_data_capture/empty.json` (placeholder)
+   - **Sink**: `bronze/change_data_capture/change_data_capture.json`
+   - **Additional column**: `cdc_value` with value from Script output: `@activity('script_get_max_cdc').output.resultSets[0].rows[0].max_cdc_value`
+
+The pipeline now fully automates the CDC process with accurate max values - no manual updates required!
+
+**Manual update (if needed):**
+
+If you need to manually adjust the CDC value:
+
+1. Go to **Storage Account** -> **Containers** -> **bronze** -> **change_data_capture**
+2. Click on `change_data_capture.json`
+3. Click **Edit**
+4. Update to desired timestamp:
+
+```json
+{
+    "cdc_value": "2026-02-01T14:30:00Z"
+}
+```
+
+---
+
+### Step 9.13: Pipeline Summary
+
+## Step 10: Automation: Loop Through Multiple Tables
+
+**Problem:** Manually testing the pipeline for each table is tedious, error-prone, and doesn't scale.
+
+**Current Challenge:**
+
+For each table, you must manually enter debug parameters with table-specific CDC columns:
+
+```manual_testing_issues
+dim_user run:
+  schema: dbo
+  table: dim_user
+  change_data_capture_column: updated_at
+  backfill_date: (empty)
+
+dim_artist run:
+  schema: dbo
+  table: dim_artist
+  change_data_capture_column: updated_at
+  backfill_date: (empty)
+
+dim_track run:
+  schema: dbo
+  table: dim_track
+  change_data_capture_column: updated_at
+  backfill_date: (empty)
+
+fact_stream run:
+  schema: dbo
+  table: fact_stream
+  change_data_capture_column: stream_timestamp  <- Different column!
+  backfill_date: (empty)
+
+Issues:
+  - Manual entry for 5+ tables
+  - Easy to forget which column each table uses
+  - No automation for scheduled runs
+  - Can't process multiple tables in parallel
+```
+
+**Solution:** Create a parent pipeline with a ForEach loop that automatically processes all tables.
+
+---
+
+### Step 10.1: Clone the Existing Pipeline
+
+1. In Data Factory Studio, go to **Author** tab
+2. Right-click on `incremental_ingestion_pipeline`
+3. Select **Clone**
+4. Rename to: `loop_incremental_ingestion_pipeline`
+
+This creates a copy that we'll convert to a looping parent pipeline.
+
+---
+
+### Step 10.2: Understand the New Architecture
+
+```mermaid
+graph TB
+    A[Parent Pipeline:<br/>loop_incremental_ingestion_pipeline] --> B[ForEach Activity]
+    B --> C[Execute Pipeline Activity]
+    C --> D[Child Pipeline:<br/>incremental_ingestion_pipeline]
+    
+    D --> E[Lookup Last CDC]
+    E --> F[Set Variable]
+    F --> G[Copy Data Incremental]
+    G --> H{If Condition<br/>dataRead > 0?}
+    H -->|TRUE| I[Script: Get Max CDC]
+    I --> J[Update CDC]
+    H -->|FALSE| K[Delete Empty File]
+    
+    style A fill:#4b0082
+    style B fill:#b45902
+    style C fill:#006ba8
+    style D fill:#195a1e
+    style H fill:#b45902
+```
+
+**Key Concept:** The ForEach loop iterates through a list of table configurations, executing the child pipeline once per table.
+
+---
+
+### Step 10.3: Add Pipeline Parameter for Table List
+
+1. In `loop_incremental_ingestion_pipeline`, click on canvas background
+2. Go to **Parameters** tab
+3. Click **+ New**
+4. Configure parameter:
+   - **Name**: `loop_input`
+   - **Type**: Array
+   - **Default value**: Click **Add dynamic content** and paste:
+
+```json
+[
+  {
+    "schema": "dbo",
+    "table": "dim_user",
+    "change_data_capture_column": "updated_at",
+    "backfill_date": ""
+  },
+  {
+    "schema": "dbo",
+    "table": "dim_artist",
+    "change_data_capture_column": "updated_at",
+    "backfill_date": ""
+  },
+  {
+    "schema": "dbo",
+    "table": "dim_track",
+    "change_data_capture_column": "updated_at",
+    "backfill_date": ""
+  },
+  {
+    "schema": "dbo",
+    "table": "fact_stream",
+    "change_data_capture_column": "stream_timestamp",
+    "backfill_date": ""
+  }
+]
+```
+
+**Note:** Each object in the array contains all parameters needed for one table's ingestion.
+
+---
+
+### Step 10.4: Remove Old Activities from Parent Pipeline
+
+Since this will be a parent pipeline that calls the child pipeline, remove all the existing activities:
+
+1. Select all activities (Lookup, Set Variable, Copy Data, Script, etc.)
+2. Press **Delete** key
+3. Confirm deletion
+
+The canvas should now be empty.
+
+---
+
+### Step 10.5: Add ForEach Activity
+
+1. In **Activities** toolbar, expand **Iteration & conditionals**
+2. Drag **ForEach** activity onto canvas
+3. **Name**: `loop_through_tables`
+4. In **Settings** tab:
+   - **Items**: Click **Add dynamic content** and enter:
+
+     ```expression
+     @pipeline().parameters.loop_input
+     ```
+
+   - **Sequential**: Unchecked (allows parallel execution)
+   - **Batch count**: Leave empty (processes all in parallel)
+
+---
+
+### Step 10.6: Add Execute Pipeline Activity Inside ForEach
+
+1. Click on **loop_through_tables** ForEach activity
+2. Click the **pencil icon** to edit activities inside the loop
+3. This opens a new canvas for the ForEach's internal activities
+4. From **Activities** toolbar, expand **General**
+5. Drag **Execute Pipeline** activity onto this inner canvas
+6. **Name**: `execute_incremental_ingestion`
+
+---
+
+### Step 10.7: Configure Execute Pipeline Activity
+
+1. Click on **execute_incremental_ingestion** activity
+2. In **Settings** tab:
+   - **Invoked pipeline**: Select `incremental_ingestion_pipeline`
+   - **Wait on completion**: Checked (waits for child to finish)
+
+3. In **Parameters** section, add parameters that map from ForEach item to child pipeline:
+
+| Parameter Name | Value |
+|----------------|-------|
+| `schema` | `@item().schema` |
+| `table` | `@item().table` |
+| `change_data_capture_column` | `@item().change_data_capture_column` |
+| `backfill_date` | `@item().backfill_date` |
+
+**Explanation:** `@item()` references the current object in the ForEach loop.
+
+---
+
+### Step 10.8: Complete Parent Pipeline Architecture
+
+```mermaid
+graph LR
+    A[Parent Pipeline Start] --> B[ForEach: loop_through_tables]
+    B --> C{For Each Item<br/>in loop_input}
+    
+    C -->|Item 1: dim_user| D1[Execute Pipeline]
+    C -->|Item 2: dim_artist| D2[Execute Pipeline]
+    C -->|Item 3: dim_track| D3[Execute Pipeline]
+    C -->|Item 4: fact_stream| D4[Execute Pipeline]
+    
+    D1 --> E1[Child Pipeline:<br/>dim_user]
+    D2 --> E2[Child Pipeline:<br/>dim_artist]
+    D3 --> E3[Child Pipeline:<br/>dim_track]
+    D4 --> E4[Child Pipeline:<br/>fact_stream]
+    
+    E1 --> F[All Complete]
+    E2 --> F
+    E3 --> F
+    E4 --> F
+    
+    style B fill:#b45902
+    style C fill:#006ba8
+    style D1 fill:#195a1e
+    style D2 fill:#195a1e
+    style D3 fill:#195a1e
+    style D4 fill:#195a1e
+```
+
+---
+
+### Step 10.9: Modify Child Pipeline to Accept ForEach Parameters
+
+Now we need to update the original `incremental_ingestion_pipeline` to work with parameters passed from the ForEach loop.
+
+**Critical Change:** Replace all `pipeline().parameters` references with `item()` references.
+
+---
+
+#### Activity 1: Lookup Activity (look_up_last_cdc_value)
+
+**Location:** Settings tab → Dataset properties → file parameter
+
+**Before:**
+
+```expression
+@concat(pipeline().parameters.table, '_cdc.json')
+```
+
+**After:**
+
+```expression
+@concat(item().table, '_cdc.json')
+```
+
+---
+
+#### Activity 2: Copy Data Source Query (azure_sql_to_lake)
+
+**Location:** Source tab → Query field
+
+**Before:**
+
+```sql
+SELECT * 
+FROM @{pipeline().parameters.schema}.@{pipeline().parameters.table} 
+WHERE @{pipeline().parameters.change_data_capture_column} > '@{if(empty(pipeline().parameters.backfill_date), activity('look_up_last_cdc_value').output.firstRow.cdc_value, pipeline().parameters.backfill_date)}'
+```
+
+**After:**
+
+```sql
+SELECT * 
+FROM @{item().schema}.@{item().table} 
+WHERE @{item().change_data_capture_column} > '@{if(empty(item().backfill_date), activity('look_up_last_cdc_value').output.firstRow.cdc_value, item().backfill_date)}'
+```
+
+---
+
+#### Activity 3: Copy Data Sink Parameters (azure_sql_to_lake)
+
+**Location:** Sink tab → Dataset properties
+
+**folder parameter - Before:**
+
+```expression
+@pipeline().parameters.table
+```
+
+**folder parameter - After:**
+
+```expression
+@item().table
+```
+
+**file parameter - Before:**
+
+```expression
+@concat(pipeline().parameters.table, '_', variables('current_cdc_value'))
+```
+
+**file parameter - After:**
+
+```expression
+@concat(item().table, '_', variables('current_cdc_value'))
+```
+
+---
+
+#### Activity 4: Script Activity Query (script_get_max_cdc)
+
+**Location:** Settings tab → Script field
+
+**Before:**
+
+```sql
+SELECT MAX(@{pipeline().parameters.change_data_capture_column}) AS max_cdc_value 
+FROM @{pipeline().parameters.schema}.@{pipeline().parameters.table}
+```
+
+**After:**
+
+```sql
+SELECT MAX(@{item().change_data_capture_column}) AS max_cdc_value 
+FROM @{item().schema}.@{item().table}
+```
+
+---
+
+####### Activity 5: Update CDC Activity (update_last_cdc)
+
+**Location:** Sink tab → Dataset properties → file parameter
+
+**Before:**
+
+```expression
+@concat(pipeline().parameters.table, '_cdc.json')
+```
+
+**After:**
+
+```expression
+@concat(item().table, '_cdc.json')
+```
+
+---
+
+#### Activity 6: Delete Activity (delete_empty_file)
+
+**Location:** Settings tab → Dataset properties
+
+**folder parameter - Before:**
+
+```expression
+@pipeline().parameters.table
+```
+
+**folder parameter - After:**
+
+```expression
+@item().table
+```
+
+**file parameter - Before:**
+
+```expression
+@concat(pipeline().parameters.table, '_', variables('current_cdc_value'))
+```
+
+**file parameter - After:**
+
+```expression
+@concat(item().table, '_', variables('current_cdc_value'))
+```
+
+---
+
+### Step 10.10: Complete Flow Diagram
+
+```mermaid
+graph TB
+    Start[Run Parent Pipeline] --> ForEach[ForEach: loop_through_tables]
+    
+    ForEach --> Item1{Process<br/>dim_user}
+    ForEach --> Item2{Process<br/>dim_artist}
+    ForEach --> Item3{Process<br/>dim_track}
+    ForEach --> Item4{Process<br/>fact_stream}
+    
+    Item1 --> Child1[Execute Child Pipeline]
+    Item2 --> Child2[Execute Child Pipeline]
+    Item3 --> Child3[Execute Child Pipeline]
+    Item4 --> Child4[Execute Child Pipeline]
+    
+    Child1 --> Flow1[Lookup → Set Var → Copy → If → Script/Delete → Update]
+    Child2 --> Flow2[Lookup → Set Var → Copy → If → Script/Delete → Update]
+    Child3 --> Flow3[Lookup → Set Var → Copy → If → Script/Delete → Update]
+    Child4 --> Flow4[Lookup → Set Var → Copy → If → Script/Delete → Update]
+    
+    Flow1 --> Complete[All Tables Processed]
+    Flow2 --> Complete
+    Flow3 --> Complete
+    Flow4 --> Complete
+    
+    style ForEach fill:#b45902
+    style Item1 fill:#006ba8
+    style Item2 fill:#006ba8
+    style Item3 fill:#006ba8
+    style Item4 fill:#006ba8
+    style Complete fill:#195a1e
+```
+
+---
+
+### Step 10.11: Testing the Loop Pipeline
+
+1. **Debug the parent pipeline:**
+   - Click **Debug** on `loop_incremental_ingestion_pipeline`
+   - Leave `loop_input` parameter as default (uses all tables)
+   - Click **OK**
+
+2. **Monitor execution:**
+   - Watch the ForEach activity expand to show 4 parallel executions
+   - Each Execute Pipeline activity will show status
+   - Click on individual executions to see child pipeline details
+
+3. **Verify results:**
+
+   ```bash
+   # Check that all tables have updated CDC files
+   az storage blob list \
+       --account-name "$AZURE_STORAGE_ACCOUNT_NAME" \
+       --container-name "bronze" \
+       --prefix "change_data_capture/" \
+       --auth-mode key \
+       --output table
+   ```
+
+4. **Expected output:**
+
+   ```output
+   All 4 Execute Pipeline activities should succeed
+   CDC files updated for all tables:
+     - dim_user_cdc.json
+     - dim_artist_cdc.json
+     - dim_track_cdc.json
+     - fact_stream_cdc.json
+   ```
+
+---
+
+### Step 10.12: Production Usage Scenarios
+
+#### Scenario 1: Run All Tables (Default)
+
+```parameters
+loop_input: (use default array with all tables)
+Result: Processes all 4 tables in parallel
+```
+
+#### Scenario 2: Run Specific Tables Only
+
+```json
+[
+  {
+    "schema": "dbo",
+    "table": "dim_user",
+    "change_data_capture_column": "updated_at",
+    "backfill_date": ""
+  },
+  {
+    "schema": "dbo",
+    "table": "fact_stream",
+    "change_data_capture_column": "stream_timestamp",
+    "backfill_date": ""
+  }
+]
+```
+
+Result: Processes only dim_user and fact_stream
+
+#### Scenario 3: Backfill Specific Table**
+
+```json
+[
+  {
+    "schema": "dbo",
+    "table": "dim_user",
+    "change_data_capture_column": "updated_at",
+    "backfill_date": "2024-01-01"
+  }
+]
+```
+
+Result: Backfills dim_user from 2024-01-01
+
+---
+
+### Benefits of This Approach: Looping Through Multiple Tables
+
+1. **Automation:** One pipeline run processes all tables
+2. **Parallelization:** Tables process simultaneously (faster overall)
+3. **Maintainability:** Add new tables by updating the array
+4. **Flexibility:** Can process all tables or specific subsets
+5. **Reusability:** Original pipeline unchanged, works standalone or in loop
+6. **Table-Specific Logic:** Each table uses correct CDC column automatically
 
 ---
 
@@ -1982,7 +2514,7 @@ dim_date      -> Requires SQL query modification for full load
 
 ```debug_flow
 - look_up_last_cdc_value    -> Reads: {"cdc_value": "1900-01-01"}
-- set_current_time_value    -> Sets: "2026-02-01T14:30:00Z"
+- set_current_cdc_value    -> Sets: "2026-02-01T14:30:00Z"
 - azure_sql_to_lake         -> Copies records where updated_at > '1900-01-01'
 - if_new_record_added       -> Condition: dataRead > 0 = TRUE
   ├─ TRUE branch:
@@ -1994,7 +2526,7 @@ dim_date      -> Requires SQL query modification for full load
 
 ```debug_flow
 - look_up_last_cdc_value    -> Reads: {"cdc_value": "2026-02-01T12:45:30Z"}
-- set_current_time_value    -> Sets: "2026-02-03T09:15:00Z"
+- set_current_cdc_value    -> Sets: "2026-02-03T09:15:00Z"
 - azure_sql_to_lake         -> No records found (dataRead = 0)
 - if_new_record_added       -> Condition: dataRead > 0 = FALSE
   ├─ FALSE branch:
@@ -2003,9 +2535,9 @@ dim_date      -> Requires SQL query modification for full load
 
 ---
 
-### Step 9.13: Troubleshooting Common Errors
+## Step 11: Troubleshooting Common Errors
 
-#### Error: "Invalid column name 'updated_at'" or similar column errors
+### Error: "Invalid column name 'updated_at'" or similar column errors
 
 **Cause**: The table doesn't have the CDC column you specified in parameters.
 
@@ -2038,7 +2570,7 @@ WHERE @{pipeline().parameters.change_data_capture_column} > '@{activity('look_up
 SELECT * FROM @{pipeline().parameters.schema}.@{pipeline().parameters.table}
 ```
 
-#### Error: "BadRequest" with no message
+### Error: "BadRequest" with no message
 
 **Likely causes:**
 
@@ -2052,10 +2584,10 @@ SELECT * FROM @{pipeline().parameters.schema}.@{pipeline().parameters.table}
    - **Fix**: Use consistent names. Recommended: `"cdc_value"`
 
 3. **Variable used before being set**
-   - Copy Data references `variables('current_time_value')` but Set Variable hasn't run yet
+   - Copy Data references `variables('current_cdc_value')` but Set Variable hasn't run yet
    - **Fix**: Ensure Set Variable runs before Copy Data
 
-#### Error: "The expression 'activity('look_up_last_cdc_value')' cannot be evaluated"
+### Error: "The expression 'activity('look_up_last_cdc_value')' cannot be evaluated"
 
 **Cause**: Copy Data is trying to execute before Lookup completes.
 
@@ -2065,7 +2597,7 @@ SELECT * FROM @{pipeline().parameters.schema}.@{pipeline().parameters.table}
 Lookup -> Set Variable -> Copy Data (Incremental) -> Script -> Copy Data (Update CDC)
 ```
 
-#### Error: Column does not exist or Invalid object name
+### Error: Column does not exist or Invalid object name
 
 **Cause**: The table name or column name doesn't match your actual SQL schema.
 
@@ -2105,7 +2637,7 @@ dim_date:    date_key, date, day, month, year, weekday (NO timestamp)
 fact_stream: stream_id, user_id, track_id, date_key, listen_duration, device_type, stream_timestamp
 ```
 
-#### Error: CDC tracking file is empty or has wrong format after update
+### Error: CDC tracking file is empty or has wrong format after update
 
 #### Fix Option 1: Verify the empty.json source file structure
 
@@ -2157,7 +2689,7 @@ cat downloaded_cdc.json
 
 2. If the file format is wrong (array instead of object), you can manually fix it or adjust the Copy Data sink settings as shown in Fix Option 2.
 
-#### Error: Empty files remain in data lake after pipeline runs with no new data
+### Error: Empty files remain in data lake after pipeline runs with no new data
 
 **Cause**: The If Condition activity is not properly configured to handle empty copy operations.
 
@@ -2172,46 +2704,11 @@ cat downloaded_cdc.json
 1. Check that the Delete activity in the False branch is configured with correct parameters:
    - Container: `bronze`
    - Folder: `@pipeline().parameters.table`
-   - File: `@concat(pipeline().parameters.table, '_', variables('current_time_value'))`
+   - File: `@concat(pipeline().parameters.table, '_', variables('current_cdc_value'))`
 
 2. Ensure the pipeline flow is: Copy Data -> If Condition -> (True: Script + Update CDC) OR (False: Delete)
 
 ---
-
-### Step 9.12: Update CDC Value After Pipeline Run
-
-~~After a successful pipeline run, you need to update the CDC tracking file with the new timestamp.~~
-
-**Automated Update (Implemented in Steps 9.7-9.8):**
-
-The pipeline automatically updates the CDC tracking file after each successful run:
-
-1. **Script Activity** (`script_get_max_cdc`): Queries the maximum CDC value from source table
-2. **Copy Data Activity** (`update_last_cdc`): Writes the max value to tracking file
-   - **Source**: `bronze/change_data_capture/empty.json` (placeholder)
-   - **Sink**: `bronze/change_data_capture/change_data_capture.json`
-   - **Additional column**: `cdc_value` with value from Script output: `@activity('script_get_max_cdc').output.resultSets[0].rows[0].max_cdc_value`
-
-The pipeline now fully automates the CDC process with accurate max values - no manual updates required!
-
-**Manual update (if needed):**
-
-If you need to manually adjust the CDC value:
-
-1. Go to **Storage Account** -> **Containers** -> **bronze** -> **change_data_capture**
-2. Click on `change_data_capture.json`
-3. Click **Edit**
-4. Update to desired timestamp:
-
-```json
-{
-    "cdc_value": "2026-02-01T14:30:00Z"
-}
-```
-
----
-
-### Step 9.13: Pipeline Summary
 
 ```mermaid
 graph TB
