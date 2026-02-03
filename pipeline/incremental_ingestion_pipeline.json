@@ -11,6 +11,12 @@
 						"dependencyConditions": [
 							"Completed"
 						]
+					},
+					{
+						"activity": "current_time_value",
+						"dependencyConditions": [
+							"Succeeded"
+						]
 					}
 				],
 				"policy": {
@@ -59,7 +65,12 @@
 				"outputs": [
 					{
 						"referenceName": "azure_data_lake_storage_parquet_dynamic",
-						"type": "DatasetReference"
+						"type": "DatasetReference",
+						"parameters": {
+							"container": "bronze",
+							"folder": "Users",
+							"file": "@concat(pipeline().parameters.table,'_',variables('current_time_value'),'.parquet')"
+						}
 					}
 				]
 			},
@@ -98,6 +109,23 @@
 					},
 					"firstRowOnly": false
 				}
+			},
+			{
+				"name": "current_time_value",
+				"type": "SetVariable",
+				"dependsOn": [],
+				"policy": {
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"variableName": "current_cdc_value",
+					"value": {
+						"value": "@utcNow()",
+						"type": "Expression"
+					}
+				}
 			}
 		],
 		"parameters": {
@@ -109,6 +137,11 @@
 			},
 			"change_data_capture_column": {
 				"type": "string"
+			}
+		},
+		"variables": {
+			"current_cdc_value": {
+				"type": "String"
 			}
 		},
 		"annotations": []
