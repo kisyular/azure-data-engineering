@@ -31,7 +31,7 @@
 					"source": {
 						"type": "AzureSqlSource",
 						"sqlReaderQuery": {
-							"value": "SELECT * FROM @{pipeline().parameters.schema}.@{pipeline().parameters.table} WHERE @{pipeline().parameters.change_data_capture_column} > '@{activity('look_up_last_cdc_value').output.value[0].cdc_value}'",
+							"value": "SELECT * \n   FROM @{pipeline().parameters.schema}.@{pipeline().parameters.table} \n   WHERE @{pipeline().parameters.change_data_capture_column} > '@{activity('look_up_last_cdc_value').output.firstRow.cdc_value}'",
 							"type": "Expression"
 						},
 						"queryTimeout": "02:00:00",
@@ -107,7 +107,7 @@
 							"file": "change_data_capture.json"
 						}
 					},
-					"firstRowOnly": false
+					"firstRowOnly": true
 				}
 			},
 			{
