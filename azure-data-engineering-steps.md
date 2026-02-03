@@ -727,8 +727,8 @@ This pipeline implements **Change Data Capture (CDC)** to incrementally load onl
       │ _capture.json  │                 │                 │ Returns:        │ _capture.json
       │                │                 │ SQL Query:      │ max_cdc_value   │
       │ Contains:      │                 │ WHERE           │                 │ Uses:
-      │ {"cdc_value": │                 │ updated_at >    │                 │ max_cdc_value
-      │  "2026-01-01"}│                 │ '2026-01-01'    │                 │
+      │ {"cdc_value":  │                 │ updated_at >    │                 │ max_cdc_value
+      │  "2026-01-01"} │                 │ '2026-01-01'    │                 │
 ```
 
 **How it works:**
