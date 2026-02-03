@@ -2094,7 +2094,7 @@ The canvas should now be empty.
 3. In **Parameters** section, add parameters that map from ForEach item to child pipeline:
 
 | Parameter Name | Value |
-|----------------|-------|
+| ---------------- | ------- |
 | `schema` | `@item().schema` |
 | `table` | `@item().table` |
 | `change_data_capture_column` | `@item().change_data_capture_column` |
