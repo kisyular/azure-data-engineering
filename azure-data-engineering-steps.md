@@ -428,115 +428,7 @@ echo "$AZURE_SQL_CONNECTION_STRING"
 
 ---
 
-## Step 8: Verify All Resources
-
-```bash
-# List all resources in the resource group
-az resource list \
-    --resource-group "$AZURE_RESOURCE_GROUP" \
-    --output table
-```
-
-**Expected resources:**
-
-| Name | Type |
-| ------ | ------ |
-| sa4dataengineering4rk | Storage Account |
-| adf-4-data-engineering-rk | Data Factory |
-| sql-server-4-data-engineering | SQL Server |
-| sqldb-4-data-engineering | SQL Database |
-
----
-
-## Cleanup (Optional)
-
-**WARNING:** This deletes EVERYTHING in the resource group!
-
-```bash
-# Delete all resources (use with caution!)
-# az group delete --name "$AZURE_RESOURCE_GROUP" --yes --no-wait
-```
-
----
-
-## Quick Reference - All Commands
-
-```bash
-# Load env vars (run first!)
-set -a && source .env && set +a
-
-# Login
-az login
-
-# Create resource group
-az group create --name "$AZURE_RESOURCE_GROUP" --location "$AZURE_LOCATION"
-
-# Create storage account
-az storage account create --name "$AZURE_STORAGE_ACCOUNT_NAME" --resource-group "$AZURE_RESOURCE_GROUP" --location "$AZURE_LOCATION" --sku "Standard_LRS" --kind "StorageV2" --hns true
-
-# Create containers
-for c in landing bronze silver gold; do az storage container create --name "$c" --account-name "$AZURE_STORAGE_ACCOUNT_NAME" --auth-mode login; done
-
-# Create data factory
-az datafactory create --name "$AZURE_DATA_FACTORY_NAME" --resource-group "$AZURE_RESOURCE_GROUP" --location "$AZURE_LOCATION"
-
-# Create SQL server & database
-az sql server create --name "$AZURE_SQL_SERVER_NAME" --resource-group "$AZURE_RESOURCE_GROUP" --location "$AZURE_LOCATION_SQL" --admin-user "$AZURE_SQL_DATABASE_USER" --admin-password "$AZURE_SQL_DATABASE_PASSWORD"
-az sql db create --name "$AZURE_SQL_DATABASE_NAME" --server "$AZURE_SQL_SERVER_NAME" --resource-group "$AZURE_RESOURCE_GROUP" --edition "Basic"
-
-# Configure firewall
-az sql server firewall-rule create --name "AllowAzureServices" --server "$AZURE_SQL_SERVER_NAME" --resource-group "$AZURE_RESOURCE_GROUP" --start-ip-address 0.0.0.0 --end-ip-address 0.0.0.0
-```
-
----
-
-## Troubleshooting
-
-### "AuthorizationFailed" error
-
-```bash
-# Check your current subscription
-az account show
-
-# List available subscriptions
-az account list --output table
-
-# Switch subscription
-az account set --subscription "Your Subscription Name"
-```
-
-### "Storage account name already taken"
-
-Storage account names must be globally unique. Add random characters:
-
-```bash
-AZURE_STORAGE_ACCOUNT_NAME="sa4dataeng$(date +%s | tail -c 5)"
-```
-
-### "SQL Server firewall blocking connection"
-
-```bash
-# Add your current IP
-MY_IP=$(curl -s ifconfig.me)
-az sql server firewall-rule create \
-    --name "AllowMyIP_$(date +%Y%m%d)" \
-    --server "$AZURE_SQL_SERVER_NAME" \
-    --resource-group "$AZURE_RESOURCE_GROUP" \
-    --start-ip-address "$MY_IP" \
-    --end-ip-address "$MY_IP"
-```
-
-### "Environment variable not set"
-
-```bash
-# Verify .env is loaded
-echo $AZURE_RESOURCE_GROUP
-
-# If empty, reload
-set -a && source .env && set +a
-```
-
-## Adding Data to Azure SQL Database
+## Step 8: Adding Data to Azure SQL Database
 
 You can run SQL scripts against your Azure SQL Database using several methods:
 
@@ -596,11 +488,11 @@ Then connect using the same credentials as Option 1.
 
 ---
 
-## Step 8: Create Linked Services in Data Factory
+## Step 9: Create Linked Services in Data Factory
 
 Linked services are connection strings that allow Data Factory to connect to external data sources.
 
-### 8.1 Create a Linked Service to Azure SQL Database
+### 9.1 Create a Linked Service to Azure SQL Database
 
 **Via Data Factory Studio (UI):**
 
@@ -649,7 +541,7 @@ az datafactory linked-service create \
 
 > **Note:** Replace `YOUR_PASSWORD` with your actual password or use Key Vault for production.
 
-### 8.2 Create a Linked Service to Azure Data Lake Storage Gen2
+### 9.2 Create a Linked Service to Azure Data Lake Storage Gen2
 
 **Via Data Factory Studio (UI):**
 
@@ -705,7 +597,7 @@ az datafactory linked-service list \
     --output table
 ```
 
-## Step 9: Create Incremental Ingestion Pipeline (Change Data Capture)
+## Step 10: Create Incremental Ingestion Pipeline (Change Data Capture)
 
 ### Overview
 
@@ -741,7 +633,7 @@ This pipeline implements **Change Data Capture (CDC)** to incrementally load onl
 
 ---
 
-### Step 9.1: Prepare the CDC Tracking File
+### Step 10.1: Prepare the CDC Tracking File
 
 First, create a JSON file to track the last CDC timestamp.
 
@@ -773,7 +665,7 @@ az storage blob upload \
 
 ---
 
-### Step 9.2: Create Pipeline Parameters
+### Step 10.2: Create Pipeline Parameters
 
 1. **Open Data Factory Studio** -> **Author** tab -> **Pipelines** -> **+ New Pipeline**
 2. **Name**: `incremental_ingestion_pipeline`
@@ -793,7 +685,7 @@ az storage blob upload \
 
 ---
 
-### Step 9.3: Create Pipeline Variable
+### Step 10.3: Create Pipeline Variable
 
 Variables store temporary values during pipeline execution.
 
@@ -805,7 +697,7 @@ Variables store temporary values during pipeline execution.
 
 ---
 
-### Step 9.4: Add Lookup Activity
+### Step 10.4: Add Lookup Activity
 
 The Lookup activity reads the last CDC timestamp from the JSON file.
 
@@ -860,7 +752,7 @@ Back in the Lookup activity's **Settings** tab:
 
 ---
 
-### Step 9.5: Add Set Variable Activity
+### Step 10.5: Add Set Variable Activity
 
 This captures the current timestamp for naming the output file.
 
@@ -877,7 +769,7 @@ This captures the current timestamp for naming the output file.
 
 ---
 
-### Step 9.6: Add Copy Data Activity
+### Step 10.6: Add Copy Data Activity
 
 This reads incremental data from SQL and writes to Data Lake.
 
@@ -962,7 +854,7 @@ Back in the Copy Data **Sink** tab:
 
 ---
 
-### Step 9.7: Add Script Activity to Get Max CDC Value
+### Step 10.7: Add Script Activity to Get Max CDC Value
 
 This activity queries the actual maximum CDC timestamp from the source table, ensuring accurate tracking.
 
@@ -995,7 +887,7 @@ This activity queries the actual maximum CDC timestamp from the source table, en
 
 ---
 
-### Step 9.8: Add Copy Data Activity to Update CDC Value
+### Step 10.8: Add Copy Data Activity to Update CDC Value
 
 This activity automatically updates the CDC tracking file with the max CDC value after data ingestion completes.
 
@@ -1179,7 +1071,7 @@ This writes the actual maximum timestamp from the processed data to the JSON fil
 
 ---
 
-### Step 9.9: Handle Empty Incremental Loads
+### Step 10.9: Handle Empty Incremental Loads
 
 **Problem:** When no new records exist in the source table (where the CDC column is greater than the last recorded value), the Copy Data activity creates an empty Parquet file in the `{table}` folder. We need to:
 
@@ -1293,7 +1185,7 @@ graph TB
 
 ---
 
-### Step 9.10: Fix CDC Tracking - Separate Files Per Table
+### Step 10.10: Fix CDC Tracking - Separate Files Per Table
 
 **Problem Identified:**
 
@@ -1884,11 +1776,11 @@ Large Backfill (> 6 months):
 
 ---
 
-### Step 9.12: Update CDC Value After Pipeline Run
+### Step 10.12: Update CDC Value After Pipeline Run
 
 ~~After a successful pipeline run, you need to update the CDC tracking file with the new timestamp.~~
 
-**Automated Update (Implemented in Steps 9.7-9.8):**
+**Automated Update (Implemented in Steps 10.7-10.8):**
 
 The pipeline automatically updates the CDC tracking file after each successful run:
 
@@ -1917,9 +1809,107 @@ If you need to manually adjust the CDC value:
 
 ---
 
-### Step 9.13: Pipeline Summary
+### Step 10.13: Validate and Debug
 
-## Step 10: Automation: Loop Through Multiple Tables
+#### Validate Pipeline
+
+1. Click **Validate** button in toolbar
+2. Check for errors in the **Output** panel
+3. Common issues:
+   - Activities not connected in correct order
+   - Missing parameters
+   - Incorrect dynamic expressions
+   - Wrong CDC column name for the table type
+
+#### Debug Pipeline
+
+1. Click **Debug** button
+2. **Test with dim_user first** (it has `updated_at`):
+   - `schema`: `dbo`
+   - `table`: `dim_user`
+   - `change_data_capture_column`: `updated_at`
+3. Click **OK**
+
+**After success, test other tables:**
+
+```test_sequence
+dim_user      -> change_data_capture_column: updated_at
+dim_artist    -> change_data_capture_column: updated_at
+dim_track     -> change_data_capture_column: updated_at
+fact_stream   -> change_data_capture_column: stream_timestamp
+dim_date      -> Requires SQL query modification for full load
+```
+
+**Expected flow (with new records):**
+
+```debug_flow
+- look_up_last_cdc_value    -> Reads: {"cdc_value": "1900-01-01"}
+- set_current_cdc_value    -> Sets: "2026-02-01T14:30:00Z"
+- azure_sql_to_lake         -> Copies records where updated_at > '1900-01-01'
+- if_new_record_added       -> Condition: dataRead > 0 = TRUE
+  ├─ TRUE branch:
+  - script_get_max_cdc      -> Queries: MAX(updated_at) = "2026-02-01T12:45:30Z"
+  - update_last_cdc         -> Writes: {"cdc_value": "2026-02-01T12:45:30Z"}
+```
+
+**Expected flow (no new records):**
+
+```debug_flow
+- look_up_last_cdc_value    -> Reads: {"cdc_value": "2026-02-01T12:45:30Z"}
+- set_current_cdc_value    -> Sets: "2026-02-03T09:15:00Z"
+- azure_sql_to_lake         -> No records found (dataRead = 0)
+- if_new_record_added       -> Condition: dataRead > 0 = FALSE
+  ├─ FALSE branch:
+  - delete_empty_file       -> Deletes: dim_user_2026-02-03T09:15:00Z.parquet
+```
+
+---
+
+### Step 10.14: Pipeline Summary
+
+```mermaid
+graph TB
+    A[Lookup Last CDC] -->|Reads JSON| B[Set Variable]
+    B -->|Stores utcNow| C[Copy Data Incremental]
+    C -->|Incremental Query| D[Azure SQL DB]
+    C -->|Writes Parquet| E[Data Lake Bronze]
+    C -->|Check Data| F{If Condition<br/>dataRead > 0?}
+    
+    F -->|TRUE: Data Found| G[Script: Get Max CDC]
+    G -->|Query MAX value| D
+    G -->|Returns max_cdc_value| H[Update CDC Value]
+    H -->|Writes Max Timestamp| I[CDC Tracking File]
+    
+    F -->|FALSE: No Data| J[Delete Empty File]
+    J -->|Remove Empty Parquet| E
+    
+    style A fill:#006ba8
+    style B fill:#8b7500
+    style C fill:#195a1e
+    style D fill:#8b0052
+    style E fill:#4b0082
+    style F fill:#b45902
+    style G fill:#a0245c
+    style H fill:#195a1e
+    style I fill:#00527a
+    style J fill:#530a0a
+```
+
+**Pipeline Logic:**
+
+- **Lookup** -> Reads last CDC value
+- **Set Variable** -> Captures current timestamp
+- **Copy Data** -> Incrementally copies new records
+- **If Condition** -> Checks if data was copied (`dataRead > 0`)
+  - **True Branch**: Update CDC tracking
+    - **Script** -> Gets MAX(CDC column) from source
+    - **Copy Data** -> Updates tracking file with new CDC value
+  - **False Branch**: Clean up
+    - **Delete** -> Removes empty Parquet file
+
+---
+
+## Step 11: Automation: Loop Through Multiple Tables
 
 **Problem:** Manually testing the pipeline for each table is tedious, error-prone, and doesn't scale.
 
@@ -1963,7 +1953,7 @@ Issues:
 
 ---
 
-### Step 10.1: Clone the Existing Pipeline
+### Step 11.1: Clone the Existing Pipeline
 
 1. In Data Factory Studio, go to **Author** tab
 2. Right-click on `incremental_ingestion_pipeline`
@@ -1974,7 +1964,7 @@ This creates a copy that we'll convert to a looping parent pipeline.
 
 ---
 
-### Step 10.2: Understand the New Architecture
+### Step 11.2: Understand the New Architecture
 
 ```mermaid
 graph TB
@@ -2001,7 +1991,7 @@ graph TB
 
 ---
 
-### Step 10.3: Add Pipeline Parameter for Table List
+### Step 11.3: Add Pipeline Parameter for Table List
 
 1. In `loop_incremental_ingestion_pipeline`, click on canvas background
 2. Go to **Parameters** tab
@@ -2044,7 +2034,7 @@ graph TB
 
 ---
 
-### Step 10.4: Remove Old Activities from Parent Pipeline
+### Step 11.4: Remove Old Activities from Parent Pipeline
 
 Since this will be a parent pipeline that calls the child pipeline, remove all the existing activities:
 
@@ -2056,7 +2046,7 @@ The canvas should now be empty.
 
 ---
 
-### Step 10.5: Add ForEach Activity
+### Step 11.5: Add ForEach Activity
 
 1. In **Activities** toolbar, expand **Iteration & conditionals**
 2. Drag **ForEach** activity onto canvas
@@ -2073,7 +2063,7 @@ The canvas should now be empty.
 
 ---
 
-### Step 10.6: Add Execute Pipeline Activity Inside ForEach
+### Step 11.6: Add Execute Pipeline Activity Inside ForEach
 
 1. Click on **loop_through_tables** ForEach activity
 2. Click the **pencil icon** to edit activities inside the loop
@@ -2084,7 +2074,7 @@ The canvas should now be empty.
 
 ---
 
-### Step 10.7: Configure Execute Pipeline Activity
+### Step 11.7: Configure Execute Pipeline Activity
 
 1. Click on **execute_incremental_ingestion** activity
 2. In **Settings** tab:
@@ -2104,7 +2094,7 @@ The canvas should now be empty.
 
 ---
 
-### Step 10.8: Complete Parent Pipeline Architecture
+### Step 11.8: Complete Parent Pipeline Architecture
 
 ```mermaid
 graph LR
@@ -2136,7 +2126,7 @@ graph LR
 
 ---
 
-### Step 10.9: Modify Child Pipeline to Accept ForEach Parameters
+### Step 11.9: Modify Child Pipeline to Accept ForEach Parameters
 
 Now we need to update the original `incremental_ingestion_pipeline` to work with parameters passed from the ForEach loop.
 
@@ -2282,7 +2272,7 @@ FROM @{item().schema}.@{item().table}
 
 ---
 
-### Step 10.10: Complete Flow Diagram
+### Step 11.10: Complete Flow Diagram
 
 ```mermaid
 graph TB
@@ -2318,7 +2308,7 @@ graph TB
 
 ---
 
-### Step 10.11: Testing the Loop Pipeline
+### Step 11.11: Testing the Loop Pipeline
 
 1. **Debug the parent pipeline:**
    - Click **Debug** on `loop_incremental_ingestion_pipeline`
@@ -2355,7 +2345,7 @@ graph TB
 
 ---
 
-### Step 10.12: Production Usage Scenarios
+### Step 11.12: Production Usage Scenarios
 
 #### Scenario 1: Run All Tables (Default)
 
@@ -2413,7 +2403,7 @@ Result: Backfills dim_user from 2024-01-01
 
 ---
 
-### Step 9.11: Understanding CDC Columns by Table Type
+### Step 10.11: Understanding CDC Columns by Table Type
 
 **Critical**: Not all tables have the same CDC tracking column!
 
@@ -2479,63 +2469,7 @@ And modify the Copy Data SQL query for dim_date:
 SELECT * FROM @{pipeline().parameters.schema}.@{pipeline().parameters.table}
 ```
 
-### Step 9.12: Validate and Debug
-
-#### Validate Pipeline
-
-1. Click **Validate** button in toolbar
-2. Check for errors in the **Output** panel
-3. Common issues:
-   - Activities not connected in correct order
-   - Missing parameters
-   - Incorrect dynamic expressions
-   - Wrong CDC column name for the table type
-
-#### Debug Pipeline
-
-1. Click **Debug** button
-2. **Test with dim_user first** (it has `updated_at`):
-   - `schema`: `dbo`
-   - `table`: `dim_user`
-   - `change_data_capture_column`: `updated_at`
-3. Click **OK**
-
-**After success, test other tables:**
-
-```test_sequence
-dim_user      -> change_data_capture_column: updated_at
-dim_artist    -> change_data_capture_column: updated_at
-dim_track     -> change_data_capture_column: updated_at
-fact_stream   -> change_data_capture_column: stream_timestamp
-dim_date      -> Requires SQL query modification for full load
-```
-
-**Expected flow (with new records):**
-
-```debug_flow
-- look_up_last_cdc_value    -> Reads: {"cdc_value": "1900-01-01"}
-- set_current_cdc_value    -> Sets: "2026-02-01T14:30:00Z"
-- azure_sql_to_lake         -> Copies records where updated_at > '1900-01-01'
-- if_new_record_added       -> Condition: dataRead > 0 = TRUE
-  ├─ TRUE branch:
-  - script_get_max_cdc      -> Queries: MAX(updated_at) = "2026-02-01T12:45:30Z"
-  - update_last_cdc         -> Writes: {"cdc_value": "2026-02-01T12:45:30Z"}
-```
-
-**Expected flow (no new records):**
-
-```debug_flow
-- look_up_last_cdc_value    -> Reads: {"cdc_value": "2026-02-01T12:45:30Z"}
-- set_current_cdc_value    -> Sets: "2026-02-03T09:15:00Z"
-- azure_sql_to_lake         -> No records found (dataRead = 0)
-- if_new_record_added       -> Condition: dataRead > 0 = FALSE
-  ├─ FALSE branch:
-  - delete_empty_file       -> Deletes: dim_user_2026-02-03T09:15:00Z.parquet
-```
-
----
-
-## Step 11: Troubleshooting Common Errors
+## Step 12: Troubleshooting Pipeline Errors
 
 ### Error: "Invalid column name 'updated_at'" or similar column errors
 
@@ -2707,6 +2641,116 @@ cat downloaded_cdc.json
    - File: `@concat(pipeline().parameters.table, '_', variables('current_cdc_value'))`
 
 2. Ensure the pipeline flow is: Copy Data -> If Condition -> (True: Script + Update CDC) OR (False: Delete)
+
+---
+
+## Appendix A: Verify All Resources
+
+```bash
+# List all resources in the resource group
+az resource list \
+    --resource-group "$AZURE_RESOURCE_GROUP" \
+    --output table
+```
+
+**Expected resources:**
+
+| Name | Type |
+| ------ | ------ |
+| sa4dataengineering4rk | Storage Account |
+| adf-4-data-engineering-rk | Data Factory |
+| sql-server-4-data-engineering | SQL Server |
+| sqldb-4-data-engineering | SQL Database |
+
+---
+
+## Appendix B: Cleanup Resources
+
+**WARNING:** This deletes EVERYTHING in the resource group!
+
+```bash
+# Delete all resources (use with caution!)
+# az group delete --name "$AZURE_RESOURCE_GROUP" --yes --no-wait
+```
+
+---
+
+## Appendix C: Quick Reference - All Commands
+
+```bash
+# Load env vars (run first!)
+set -a && source .env && set +a
+
+# Login
+az login
+
+# Create resource group
+az group create --name "$AZURE_RESOURCE_GROUP" --location "$AZURE_LOCATION"
+
+# Create storage account
+az storage account create --name "$AZURE_STORAGE_ACCOUNT_NAME" --resource-group "$AZURE_RESOURCE_GROUP" --location "$AZURE_LOCATION" --sku "Standard_LRS" --kind "StorageV2" --hns true
+
+# Create containers
+for c in landing bronze silver gold; do az storage container create --name "$c" --account-name "$AZURE_STORAGE_ACCOUNT_NAME" --auth-mode login; done
+
+# Create data factory
+az datafactory create --name "$AZURE_DATA_FACTORY_NAME" --resource-group "$AZURE_RESOURCE_GROUP" --location "$AZURE_LOCATION"
+
+# Create SQL server & database
+az sql server create --name "$AZURE_SQL_SERVER_NAME" --resource-group "$AZURE_RESOURCE_GROUP" --location "$AZURE_LOCATION_SQL" --admin-user "$AZURE_SQL_DATABASE_USER" --admin-password "$AZURE_SQL_DATABASE_PASSWORD"
+az sql db create --name "$AZURE_SQL_DATABASE_NAME" --server "$AZURE_SQL_SERVER_NAME" --resource-group "$AZURE_RESOURCE_GROUP" --edition "Basic"
+
+# Configure firewall
+az sql server firewall-rule create --name "AllowAzureServices" --server "$AZURE_SQL_SERVER_NAME" --resource-group "$AZURE_RESOURCE_GROUP" --start-ip-address 0.0.0.0 --end-ip-address 0.0.0.0
+```
+
+---
+
+## Appendix D: General Troubleshooting
+
+### "AuthorizationFailed" error
+
+```bash
+# Check your current subscription
+az account show
+
+# List available subscriptions
+az account list --output table
+
+# Switch subscription
+az account set --subscription "Your Subscription Name"
+```
+
+### "Storage account name already taken"
+
+Storage account names must be globally unique. Add random characters:
+
+```bash
+AZURE_STORAGE_ACCOUNT_NAME="sa4dataeng$(date +%s | tail -c 5)"
+```
+
+### "SQL Server firewall blocking connection"
+
+```bash
+# Add your current IP
+MY_IP=$(curl -s ifconfig.me)
+az sql server firewall-rule create \
+    --name "AllowMyIP_$(date +%Y%m%d)" \
+    --server "$AZURE_SQL_SERVER_NAME" \
+    --resource-group "$AZURE_RESOURCE_GROUP" \
+    --start-ip-address "$MY_IP" \
+    --end-ip-address "$MY_IP"
+```
+
+### "Environment variable not set"
+
+```bash
+# Verify .env is loaded
+echo $AZURE_RESOURCE_GROUP
+
+# If empty, reload
+set -a && source .env && set +a
+```
 
 ---
 
