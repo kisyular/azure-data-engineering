@@ -69,7 +69,10 @@
 						"parameters": {
 							"container": "bronze",
 							"folder": "Users",
-							"file": "@concat(pipeline().parameters.table,'_',variables('current_time_value'),'.parquet')"
+							"file": {
+								"value": "@concat(pipeline().parameters.table, '_', variables('current_cdc_value'))",
+								"type": "Expression"
+							}
 						}
 					}
 				]
