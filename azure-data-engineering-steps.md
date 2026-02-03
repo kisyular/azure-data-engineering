@@ -884,7 +884,7 @@ This reads incremental data from SQL and writes to Data Lake.
 #### A. Add the Activity - Copy Data
 
 1. Drag **Copy Data** activity onto canvas
-2. **Name**: `incremental_ingestion_copy_data`
+2. **Name**: `azure_sql_to_lake`
 3. Connect **Set Variable** → **Copy Data** (drag the green arrow)
 
 > **IMPORTANT**: The order must be: Lookup → Set Variable → Copy Data
@@ -969,8 +969,8 @@ This activity queries the actual maximum CDC timestamp from the source table, en
 #### A. Add the Activity - Script
 
 1. Drag **Script** activity onto canvas (from **General** section)
-2. **Name**: `get_max_cdc_value`
-3. Connect **incremental_ingestion_copy_data** → **get_max_cdc_value** (drag the green arrow)
+2. **Name**: `script_get_max_cdc`
+3. Connect **azure_sql_to_lake** → **script_get_max_cdc** (drag the green arrow)
 
 #### B. Configure Linked Service
 
@@ -1003,7 +1003,7 @@ This activity automatically updates the CDC tracking file with the max CDC value
 
 1. Drag **Copy Data** activity onto canvas
 2. **Name**: `update_last_cdc`
-3. Connect **get_max_cdc_value** → **update_last_cdc** (drag the green arrow)
+3. Connect **script_get_max_cdc** → **update_last_cdc** (drag the green arrow)
 
 > **IMPORTANT**: Activity order: Lookup → Set Variable → Copy Data (Incremental) → Script → Copy Data (Update CDC)
 
@@ -1060,7 +1060,7 @@ az storage blob upload \
    - **Value**: Click **Add dynamic content** and enter:
 
 ```script
-@activity('get_max_cdc_value').output.resultSets[0].rows[0].max_cdc_value
+@activity('script_get_max_cdc').output.resultSets[0].rows[0].max_cdc_value
 ```
 
 **Important Notes:**
@@ -1087,7 +1087,7 @@ This configuration should create a clean JSON file: `{"cdc_value": "2026-02-01T1
 
 1. Drag **Web** activity onto canvas (from **General** section)
 2. **Name**: `update_last_cdc`
-3. Connect **get_max_cdc_value** → **update_last_cdc** (drag the green arrow)
+3. Connect **script_get_max_cdc** → **update_last_cdc** (drag the green arrow)
 
 **Configure Web Activity:**
 
@@ -1107,7 +1107,7 @@ This configuration should create a clean JSON file: `{"cdc_value": "2026-02-01T1
 - **Body**: Click **Add dynamic content** and enter:
 
    ```json
-   @concat('{"cdc_value": "', activity('get_max_cdc_value').output.resultSets[0].rows[0].max_cdc_value, '"}')
+   @concat('{"cdc_value": "', activity('script_get_max_cdc').output.resultSets[0].rows[0].max_cdc_value, '"}')
    ```
 
 - **Authentication**: Select **MSI** (Managed Service Identity)
@@ -1137,7 +1137,7 @@ If you want to keep using Copy Data, here's how to fix the issue:
 
 1. Drag **Copy Data** activity onto canvas
 2. **Name**: `update_last_cdc`
-3. Connect **incremental_ingestion_copy_data** → **update_last_cdc** (drag the green arrow)
+3. Connect **azure_sql_to_lake** → **update_last_cdc** (drag the green arrow)
 
 > **IMPORTANT**: Activity order: Lookup → Set Variable → Copy Data (Incremental) → Script → Copy Data (Update CDC)
 
@@ -1172,14 +1172,129 @@ This is the key step - we add a column with the max CDC value from the Script ac
    - **Value**: Click **Add dynamic content** and enter:
 
 ```script
-@activity('get_max_cdc_value').output.resultSets[0].rows[0].max_cdc_value
+@activity('script_get_max_cdc').output.resultSets[0].rows[0].max_cdc_value
 ```
 
 This writes the actual maximum timestamp from the processed data to the JSON file, ensuring accurate CDC tracking for the next pipeline run.
 
 ---
 
-### Step 9.9: Validate and Debug
+### Step 9.9: Handle Empty Incremental Loads
+
+**Problem:** When no new records exist in the source table (where the CDC column is greater than the last recorded value), the Copy Data activity creates an empty Parquet file in the `{table}` folder. We need to:
+
+1. Check if any data was actually copied
+2. Skip CDC update activities if no data was found
+3. Delete the empty file to keep the data lake clean
+
+**Solution:** Add an If Condition activity to check the output of the Copy Data activity.
+
+#### A. Add If Condition Activity
+
+1. Drag **If Condition** activity onto canvas (from **Iteration & conditionals** section)
+2. **Name**: `if_new_record_added`
+3. Connect **azure_sql_to_lake** → **if_new_record_added** (drag the green arrow)
+4. **Remove** the existing connection from **azure_sql_to_lake** to **script_get_max_cdc**
+
+#### B. Configure the Condition Expression
+
+1. Click on the **if_new_record_added** activity
+2. Go to **Activities** tab
+3. In **Expression**, click **Add dynamic content** and enter:
+
+```expression
+@greater(activity('azure_sql_to_lake').output.dataRead, 0)
+```
+
+> **Explanation:** This checks if the `dataRead` property (bytes of data copied) is greater than 0. If true, data was copied; if false, no data was found.
+
+#### C. Configure True Branch (Data Was Copied)
+
+When the condition is **True** (new records found), we proceed with the CDC update:
+
+1. Click on **if_new_record_added** activity
+2. Go to **Activities** tab
+3. Under **True case**, click the **pencil icon** (✏️) to edit
+4. This opens a new canvas for the True branch
+
+**Add activities to True branch:**
+
+1. Drag **script_get_max_cdc** activity into the True branch canvas
+2. Drag **update_last_cdc** activity into the True branch canvas
+3. Connect **script_get_max_cdc** → **update_last_cdc**
+
+> **Note:** You may need to recreate these activities if they were already connected differently. The True branch should contain the complete CDC update flow.
+
+#### D. Configure False Branch (No Data Found)
+
+When the condition is **False** (no new records), we delete the empty file:
+
+1. Click on **if_new_record_added** activity
+2. Go to **Activities** tab
+3. Under **False case**, click the **pencil icon** (✏️) to edit
+4. This opens a new canvas for the False branch
+
+**Add Delete activity:**
+
+1. Drag **Delete** activity onto the False branch canvas (from **General** section)
+2. **Name**: `delete_empty_file`
+
+**Configure Delete activity:**
+
+1. Click on **delete_empty_file** activity
+2. Go to **Settings** tab
+3. **Dataset**: Select `azure_data_lake_storage_parquet_dynamic`
+4. **Dataset properties**:
+   - **container**: `bronze`
+   - **folder**: Click **Add dynamic content**:
+
+     ```expression
+     @pipeline().parameters.table
+     ```
+
+   - **file**: Click **Add dynamic content**:
+
+     ```expression
+     @concat(pipeline().parameters.table, '_', variables('current_time_value'))
+     ```
+
+5. **Logging settings**:
+   - **Enable logging**: Unchecked (optional)
+
+> **Explanation:** This deletes the empty Parquet file that was created when no new data was found, keeping the data lake clean.
+
+#### E. Updated Pipeline Flow
+
+```pipeline_flow
+┌────────────┐   ┌────────────┐   ┌────────────┐   ┌────────────┐
+│  Lookup    │──>│Set Variable│──>│ Copy Data  │──>│If Condition│
+│Last CDC    │   │(curr_time) │   │(Increment) │   │(has data?) │
+└────────────┘   └────────────┘   └────────────┘   └──────┬─────┘
+                                                           │
+                                          ┌────────────────┴────────────────┐
+                                          │ TRUE (data > 0)                 │ FALSE (data = 0)
+                                          ▼                                 ▼
+                                   ┌────────────┐                    ┌────────────┐
+                                   │   Script   │                    │   Delete   │
+                                   │(Get Max)   │                    │Empty File  │
+                                   └──────┬─────┘                    └────────────┘
+                                          │
+                                          ▼
+                                   ┌────────────┐
+                                   │ Copy Data  │
+                                   │(Update CDC)│
+                                   └────────────┘
+```
+
+**New behavior:**
+
+- If new records found → Update CDC tracking file with max value
+- If no new records → Delete empty file, keep CDC value unchanged
+- CDC tracking file only updates when data is actually processed
+
+---
+
+### Step 9.10: Validate and Debug
 
 #### Validate Pipeline
 
@@ -1199,19 +1314,32 @@ This writes the actual maximum timestamp from the processed data to the JSON fil
    - `change_data_capture_column`: `updated_at` (or your timestamp column)
 3. Click **OK**
 
-**Expected flow:**
+**Expected flow (with new records):**
 
 ```debug_flow
-✓ look_up_last_cdc_value   → Reads: {"cdc_value": "1900-01-01"}
+✓ look_up_last_cdc_value    → Reads: {"cdc_value": "1900-01-01"}
 ✓ set_current_time_value    → Sets: "2026-02-01T14:30:00Z"
-✓ incremental_ingestion_... → Copies records where updated_at > '1900-01-01'
-✓ get_max_cdc_value         → Queries: MAX(updated_at) = "2026-02-01T12:45:30Z"
-✓ update_last_cdc           → Writes: {"cdc_value": "2026-02-01T12:45:30Z"} to tracking file
+✓ azure_sql_to_lake         → Copies records where updated_at > '1900-01-01'
+✓ if_new_record_added       → Condition: dataRead > 0 = TRUE
+  ├─ TRUE branch:
+  ✓ script_get_max_cdc      → Queries: MAX(updated_at) = "2026-02-01T12:45:30Z"
+  ✓ update_last_cdc         → Writes: {"cdc_value": "2026-02-01T12:45:30Z"}
+```
+
+**Expected flow (no new records):**
+
+```debug_flow
+✓ look_up_last_cdc_value    → Reads: {"cdc_value": "2026-02-01T12:45:30Z"}
+✓ set_current_time_value    → Sets: "2026-02-03T09:15:00Z"
+✓ azure_sql_to_lake         → No records found (dataRead = 0)
+✓ if_new_record_added       → Condition: dataRead > 0 = FALSE
+  ├─ FALSE branch:
+  ✓ delete_empty_file       → Deletes: dim_user_2026-02-03T09:15:00Z.parquet
 ```
 
 ---
 
-### Step 9.10: Troubleshooting Common Errors
+### Step 9.11: Troubleshooting Common Errors
 
 #### Error: "BadRequest" with no message
 
@@ -1278,7 +1406,7 @@ Make sure in the **Source** tab:
 
 - Additional columns section has exactly one column
 - Name: `cdc_value`  
-- Value: `@activity('get_max_cdc_value').output.resultSets[0].rows[0].max_cdc_value`
+- Value: `@activity('script_get_max_cdc').output.resultSets[0].rows[0].max_cdc_value`
 
 **Debugging steps:**
 
@@ -1296,15 +1424,34 @@ cat downloaded_cdc.json
 ```
 
 1. Check the Script activity output to verify it's returning the value:
-   - In the pipeline run details, click on `get_max_cdc_value`
+   - In the pipeline run details, click on `script_get_max_cdc`
    - Look at the **Output** tab
    - Verify you see: `"resultSets": [{"rows": [{"max_cdc_value": "2026-02-01..."}]}]`
 
 2. If the file format is wrong (array instead of object), you can manually fix it or adjust the Copy Data sink settings as shown in Fix Option 2.
 
+#### Error: Empty files remain in data lake after pipeline runs with no new data
+
+**Cause**: The If Condition activity is not properly configured to handle empty copy operations.
+
+**Fix**:
+
+1. Verify the If Condition expression is correct:
+
+```expression
+@greater(activity('azure_sql_to_lake').output.dataRead, 0)
+```
+
+1. Check that the Delete activity in the False branch is configured with correct parameters:
+   - Container: `bronze`
+   - Folder: `@pipeline().parameters.table`
+   - File: `@concat(pipeline().parameters.table, '_', variables('current_time_value'))`
+
+2. Ensure the pipeline flow is: Copy Data → If Condition → (True: Script + Update CDC) OR (False: Delete)
+
 ---
 
-### Step 9.11: Update CDC Value After Pipeline Run
+### Step 9.12: Update CDC Value After Pipeline Run
 
 ~~After a successful pipeline run, you need to update the CDC tracking file with the new timestamp.~~
 
@@ -1312,11 +1459,11 @@ cat downloaded_cdc.json
 
 The pipeline automatically updates the CDC tracking file after each successful run:
 
-1. **Script Activity** (`get_max_cdc_value`): Queries the maximum CDC value from source table
+1. **Script Activity** (`script_get_max_cdc`): Queries the maximum CDC value from source table
 2. **Copy Data Activity** (`update_last_cdc`): Writes the max value to tracking file
    - **Source**: `bronze/change_data_capture/empty.json` (placeholder)
    - **Sink**: `bronze/change_data_capture/change_data_capture.json`
-   - **Additional column**: `cdc_value` with value from Script output: `@activity('get_max_cdc_value').output.resultSets[0].rows[0].max_cdc_value`
+   - **Additional column**: `cdc_value` with value from Script output: `@activity('script_get_max_cdc').output.resultSets[0].rows[0].max_cdc_value`
 
 The pipeline now fully automates the CDC process with accurate max values - no manual updates required!
 
@@ -1337,27 +1484,46 @@ If you need to manually adjust the CDC value:
 
 ---
 
-### Step 9.12: Pipeline Summary
+### Step 9.13: Pipeline Summary
 
 ```mermaid
-graph LR
+graph TB
     A[Lookup Last CDC] -->|Reads JSON| B[Set Variable]
     B -->|Stores utcNow| C[Copy Data Incremental]
     C -->|Incremental Query| D[Azure SQL DB]
     C -->|Writes Parquet| E[Data Lake Bronze]
-    C -->|On Success| F[Script: Get Max CDC]
-    F -->|Query MAX value| D
-    F -->|Returns max_cdc_value| G[Update CDC Value]
-    G -->|Writes Max Timestamp| H[CDC Tracking File]
+    C -->|Check Data| F{If Condition<br/>dataRead > 0?}
+    
+    F -->|TRUE: Data Found| G[Script: Get Max CDC]
+    G -->|Query MAX value| D
+    G -->|Returns max_cdc_value| H[Update CDC Value]
+    H -->|Writes Max Timestamp| I[CDC Tracking File]
+    
+    F -->|FALSE: No Data| J[Delete Empty File]
+    J -->|Remove Empty Parquet| E
     
     style A fill:#e1f5ff
     style B fill:#fff4e1
     style C fill:#e8f5e9
     style D fill:#fce4ec
     style E fill:#f3e5f5
-    style F fill:#ffe5f1
-    style G fill:#e8f5e9
-    style H fill:#e1f5ff
+    style F fill:#ffe5cc
+    style G fill:#ffe5f1
+    style H fill:#e8f5e9
+    style I fill:#e1f5ff
+    style J fill:#ffcccc
 ```
+
+**Pipeline Logic:**
+
+- **Lookup** → Reads last CDC value
+- **Set Variable** → Captures current timestamp
+- **Copy Data** → Incrementally copies new records
+- **If Condition** → Checks if data was copied (`dataRead > 0`)
+  - **True Branch**: Update CDC tracking
+    - **Script** → Gets MAX(CDC column) from source
+    - **Copy Data** → Updates tracking file with new CDC value
+  - **False Branch**: Clean up
+    - **Delete** → Removes empty Parquet file
 
 ---
