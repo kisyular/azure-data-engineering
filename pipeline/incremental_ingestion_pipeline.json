@@ -135,7 +135,7 @@
 			},
 			"table": {
 				"type": "string",
-				"defaultValue": "Users"
+				"defaultValue": "dim_users"
 			},
 			"change_data_capture_column": {
 				"type": "string",
