@@ -704,3 +704,383 @@ az datafactory linked-service list \
     --resource-group "$AZURE_RESOURCE_GROUP" \
     --output table
 ```
+
+## Step 9: Create Incremental Ingestion Pipeline (Change Data Capture)
+
+### Overview
+
+This pipeline implements **Change Data Capture (CDC)** to incrementally load only new or modified records from Azure SQL Database to Azure Data Lake Storage. Instead of loading the entire table each time, we track the last processed timestamp and only load records created/modified after that time.
+
+**Pipeline Flow:**
+
+```pipeline_flow
+┌─────────────────┐      ┌──────────────────┐      ┌─────────────────┐
+│  Lookup Last    │ ───> │  Set Variable    │ ───> │   Copy Data     │
+│  CDC Timestamp  │      │  (current_time)  │      │ (Incremental)   │
+└─────────────────┘      └──────────────────┘      └─────────────────┘
+        │                                                    │
+        │ Read from:                                        │ Write to:
+        │ bronze/change_data_capture/                       │ bronze/dim_user/
+        │ change_data_capture.json                          │ dim_user_2026-02-01.parquet
+        │                                                    │
+        │ Contains: {"cdc_value": "2026-01-01"}            │ SQL Query filters:
+        │                                                    │ WHERE updated_at > '2026-01-01'
+```
+
+**How it works:**
+
+1. **Lookup** reads the last processed timestamp from a JSON file
+2. **Set Variable** captures the current timestamp for later updates
+3. **Copy Data** queries SQL database for records newer than last timestamp
+4. After successful run, update the JSON file with the new timestamp (manual or via another activity)
+
+---
+
+### Step 9.1: Prepare the CDC Tracking File
+
+First, create a JSON file to track the last CDC timestamp.
+
+inside `change_data_capture` add a file named `change_data_capture.json` with the following content:
+
+```json
+{
+    "cdc_value": "1900-01-01"
+}
+```
+
+```bash
+# Upload to Azure (directory will be created automatically with the file path)
+az storage blob upload \
+    --account-name "$AZURE_STORAGE_ACCOUNT_NAME" \
+    --container-name "bronze" \
+    --name "change_data_capture/change_data_capture.json" \
+    --file change_data_capture/change_data_capture.json \
+    --auth-mode key \
+    --overwrite
+```
+
+> **Note:**
+>
+> - `"1900-01-01"` ensures the first run captures all historical data
+> - The `change_data_capture/` directory is created automatically when uploading the file
+> - Azure Data Lake Gen2 (hierarchical namespace) creates directories implicitly
+
+---
+
+### Step 9.2: Create Pipeline Parameters
+
+1. **Open Data Factory Studio** → **Author** tab → **Pipelines** → **+ New Pipeline**
+2. **Name**: `incremental_ingestion_pipeline`
+3. **Add Pipeline Parameters** (click on canvas background to see properties):
+
+| Parameter Name | Type | Default Value | Description |
+| ---------------- | ------ | --------------- | ------------- |
+| `schema` | String | `dbo` | SQL schema name |
+| `table` | String | `dim_user` | SQL table name |
+| `change_data_capture_column` | String | `updated_at` | Column to track changes |
+
+**How to add parameters:**
+
+- Click on empty canvas (not an activity)
+- Click **Parameters** tab in the bottom panel
+- Click **+ New** for each parameter above
+
+---
+
+### Step 9.3: Create Pipeline Variable
+
+Variables store temporary values during pipeline execution.
+
+1. **Click on canvas background** → **Variables** tab
+2. **Add Variable**:
+   - **Name**: `current_time_value`
+   - **Type**: String
+   - **Default value**: (leave empty)
+
+---
+
+### Step 9.4: Add Lookup Activity
+
+The Lookup activity reads the last CDC timestamp from the JSON file.
+
+#### A. Add the Activity
+
+1. In the **Activities** toolbar, expand **General**
+2. Drag **Lookup** onto the canvas
+3. **Name**: `look_up_last_cdc_value`
+
+#### B. Create JSON Dataset (Dynamic)
+
+1. In the **Settings** tab of Lookup activity → **Source dataset** → **+ New**
+2. Select **Azure Data Lake Storage Gen2** → **Continue**
+3. Select format: **JSON** → **Continue**
+4. Configure dataset:
+   - **Name**: `azure_data_lake_storage_json_dynamic`
+   - **Linked service**: `azure_data_lake_4_data_engineering`
+   - Click **OK**
+
+5. **Open the dataset for parameterization**:
+   - Click the link: `Open this dataset for more advanced configuration with parameterization`
+   - Go to **Parameters** tab
+   - Add three parameters:
+
+   | Parameter | Type | Default Value |
+   | ----------- | ------ | --------------- |
+   | `container` | String | (empty) |
+   | `folder` | String | (empty) |
+   | `file` | String | (empty) |
+
+6. **Configure File Path** (in **Connection** tab):
+   - Click in the **File path** boxes and use **Add dynamic content**:
+
+   ```file_path
+   Container: @dataset().container
+   Directory: @dataset().folder  
+   File:      @dataset().file
+   ```
+
+7. **Save** and go back to the pipeline
+
+#### C. Configure Lookup Activity Parameters
+
+Back in the Lookup activity's **Settings** tab:
+
+- **Source dataset**: `azure_data_lake_storage_json_dynamic`
+- **Dataset parameters**:
+  - `container`: `bronze`
+  - `folder`: `change_data_capture`
+  - `file`: `change_data_capture.json`
+- **First row only**: ✓ (checked)
+
+---
+
+### Step 9.5: Add Set Variable Activity
+
+This captures the current timestamp for naming the output file.
+
+1. Drag **Set Variable** activity onto canvas
+2. **Name**: `set_current_time_value`
+3. Connect **Lookup** → **Set Variable** (drag the green arrow)
+4. In **Settings** tab:
+   - **Variable name**: `current_time_value`
+   - **Value**: Click **Add dynamic content** and enter:
+
+   ```
+   @utcNow()
+   ```
+
+---
+
+### Step 9.6: Add Copy Data Activity
+
+This reads incremental data from SQL and writes to Data Lake.
+
+#### A. Add the Activity
+
+1. Drag **Copy Data** activity onto canvas
+2. **Name**: `incremental_ingestion_copy_data`
+3. Connect **Set Variable** → **Copy Data** (drag the green arrow)
+
+> **IMPORTANT**: The order must be: Lookup → Set Variable → Copy Data
+
+#### B. Configure Source (SQL Database)
+
+1. **Source** tab → **Source dataset** → **+ New**
+2. Select **Azure SQL Database** → **Continue**
+3. Configure dataset:
+   - **Name**: `azure_sql_data_source_pipeline`
+   - **Linked service**: `azure_db_4_data_engineering`
+   - Click **OK**
+
+4. **Back in Source tab**:
+   - **Use query**: **Query**
+   - **Query**: Click **Add dynamic content** and enter:
+
+   ```sql
+   SELECT * 
+   FROM @{pipeline().parameters.schema}.@{pipeline().parameters.table} 
+   WHERE @{pipeline().parameters.change_data_capture_column} > '@{activity('look_up_last_cdc_value').output.firstRow.cdc_value}'
+   ```
+
+   > **Explanation**:
+   > - `@{pipeline().parameters.schema}` → `dbo`
+   > - `@{pipeline().parameters.table}` → `dim_user`
+   > - `@{pipeline().parameters.change_data_capture_column}` → `updated_at`
+   > - `@{activity('look_up_last_cdc_value').output.firstRow.cdc_value}` → Value from JSON file
+
+#### C. Create Parquet Dataset (Dynamic)
+
+1. **Sink** tab → **Sink dataset** → **+ New**
+2. Select **Azure Data Lake Storage Gen2** → **Continue**
+3. Select format: **Parquet** → **Continue**
+4. Configure dataset:
+   - **Name**: `azure_data_lake_storage_parquet_dynamic`
+   - **Linked service**: `azure_data_lake_4_data_engineering`
+   - Click **OK**
+
+5. **Open the dataset for parameterization**:
+   - Go to **Parameters** tab
+   - Add three parameters:
+
+   | Parameter | Type | Default Value |
+   |-----------|------|---------------|
+   | `container` | String | (empty) |
+   | `folder` | String | (empty) |
+   | `file` | String | (empty) |
+
+6. **Configure File Path** (in **Connection** tab):
+
+   ```
+   Container: @dataset().container
+   Directory: @dataset().folder
+   File:      @concat(dataset().file, '.parquet')
+   ```
+
+7. **Save** and go back to the pipeline
+
+#### D. Configure Sink Parameters
+
+Back in the Copy Data **Sink** tab:
+
+- **Sink dataset**: `azure_data_lake_storage_parquet_dynamic`
+- **Dataset parameters**:
+  - `container`: `bronze`
+  - `folder`: `dim_user`
+  - `file`: Click **Add dynamic content**:
+  
+  ```
+  @concat(pipeline().parameters.table, '_', variables('current_time_value'))
+  ```
+
+  This creates files like: `dim_user_2026-02-01T14:30:00Z.parquet`
+
+---
+
+### Step 9.7: Validate and Debug
+
+#### Validate Pipeline
+
+1. Click **Validate** button in toolbar
+2. Check for errors in the **Output** panel
+3. Common issues:
+   - Activities not connected in correct order
+   - Missing parameters
+   - Incorrect dynamic expressions
+
+#### Debug Pipeline
+
+1. Click **Debug** button
+2. Enter parameter values:
+   - `schema`: `dbo`
+   - `table`: `dim_user`
+   - `change_data_capture_column`: `updated_at` (or your timestamp column)
+3. Click **OK**
+
+**Expected flow:**
+
+```
+✓ look_up_last_cdc_value   → Reads: {"cdc_value": "1900-01-01"}
+✓ set_current_time_value    → Sets: "2026-02-01T14:30:00Z"
+✓ incremental_ingestion_... → Copies records where updated_at > '1900-01-01'
+```
+
+---
+
+### Step 9.8: Troubleshooting Common Errors
+
+#### Error: "BadRequest" with no message
+
+**Likely causes:**
+
+1. **Activity dependency order is wrong**
+   - ❌ Copy Data → Lookup (wrong!)
+   - ✓ Lookup → Set Variable → Copy Data (correct!)
+
+2. **JSON field name mismatch**
+   - JSON file has: `"change_data_capture_column"`
+   - Expression uses: `"cdc_value"`
+   - **Fix**: Use consistent names. Recommended: `"cdc_value"`
+
+3. **Variable used before being set**
+   - Copy Data references `variables('current_time_value')` but Set Variable hasn't run yet
+   - **Fix**: Ensure Set Variable runs before Copy Data
+
+#### Error: "The expression 'activity('look_up_last_cdc_value')' cannot be evaluated"
+
+**Cause**: Copy Data is trying to execute before Lookup completes.
+
+**Fix**: Check the green arrows (dependencies). Should be:
+
+```
+Lookup → Set Variable → Copy Data
+```
+
+#### Error: Column does not exist or Invalid object name
+
+**Cause**: The table name or column name doesn't match your actual SQL schema.
+
+**Fix**:
+
+1. Check your table schema (e.g., `dbo.dim_user` not `Users`)
+2. Update the `table` parameter to match exactly (case-sensitive)
+3. Update the `change_data_capture_column` parameter to match your actual timestamp column (e.g., `updated_at`, `ModifiedDate`, `LastUpdated`)
+
+---
+
+### Step 9.9: Update CDC Value After Pipeline Run
+
+After a successful pipeline run, you need to update the CDC tracking file with the new timestamp.
+
+**Manual update via Azure Portal:**
+
+1. Go to **Storage Account** → **Containers** → **bronze** → **change_data_capture**
+2. Click on `change_data_capture.json`
+3. Click **Edit**
+4. Update to:
+
+```json
+{
+    "cdc_value": "2026-02-01T14:30:00Z"
+}
+```
+
+**Automated update (Advanced):**
+
+Add a **Copy Data** activity at the end to write the new timestamp:
+
+- Source: Empty dataset
+- Sink: Same JSON file
+- Use **Additional columns** to write: `@variables('current_time_value')`
+
+---
+
+### Pipeline Summary
+
+```mermaid
+graph LR
+    A[Lookup Last CDC] -->|Reads JSON| B[Set Variable]
+    B -->|Stores utcNow| C[Copy Data]
+    C -->|Incremental Query| D[Azure SQL DB]
+    C -->|Writes Parquet| E[Data Lake Bronze]
+    
+    style A fill:#e1f5ff
+    style B fill:#fff4e1
+    style C fill:#e8f5e9
+    style D fill:#fce4ec
+    style E fill:#f3e5f5
+```
+
+**What you've built:**
+
+- ✅ Reusable pipeline with parameters
+- ✅ Incremental data loading (not full refresh)
+- ✅ Dynamic file naming with timestamps
+- ✅ Tracked CDC state in JSON file
+- ✅ Efficient: Only processes new/changed records
+
+**Next steps:**
+
+- Add error handling (If Condition, Try-Catch)
+- Automate CDC value updates
+- Schedule pipeline with triggers
+- Add logging and monitoring
