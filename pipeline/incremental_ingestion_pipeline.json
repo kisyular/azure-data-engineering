@@ -5,7 +5,14 @@
 			{
 				"name": "incremental_ingestion_copy_data",
 				"type": "Copy",
-				"dependsOn": [],
+				"dependsOn": [
+					{
+						"activity": "look_up_last_cdc_value",
+						"dependencyConditions": [
+							"Completed"
+						]
+					}
+				],
 				"policy": {
 					"timeout": "0.12:00:00",
 					"retry": 0,
@@ -17,14 +24,41 @@
 				"typeProperties": {
 					"source": {
 						"type": "AzureSqlSource",
+						"sqlReaderQuery": {
+							"value": "SELECT * FROM @{pipeline().parameters.schema}.@{pipeline().parameters.table} WHERE @{pipeline().parameters.change_data_capture_column} > '@{activity('look_up_last_cdc_value').output.value[0].cdc_value}'",
+							"type": "Expression"
+						},
 						"queryTimeout": "02:00:00",
 						"partitionOption": "None"
 					},
-					"enableStaging": false
+					"sink": {
+						"type": "ParquetSink",
+						"storeSettings": {
+							"type": "AzureBlobFSWriteSettings"
+						},
+						"formatSettings": {
+							"type": "ParquetWriteSettings"
+						}
+					},
+					"enableStaging": false,
+					"translator": {
+						"type": "TabularTranslator",
+						"typeConversion": true,
+						"typeConversionSettings": {
+							"allowDataTruncation": true,
+							"treatBooleanAsNumber": false
+						}
+					}
 				},
 				"inputs": [
 					{
 						"referenceName": "azure_sql_data_source_pipeline",
+						"type": "DatasetReference"
+					}
+				],
+				"outputs": [
+					{
+						"referenceName": "azure_data_lake_storage_parquet_dynamic",
 						"type": "DatasetReference"
 					}
 				]
