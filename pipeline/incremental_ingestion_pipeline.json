@@ -176,8 +176,7 @@
 							"type": "AzureBlobFSWriteSettings"
 						},
 						"formatSettings": {
-							"type": "JsonWriteSettings",
-							"filePattern": "setOfObjects"
+							"type": "JsonWriteSettings"
 						}
 					},
 					"enableStaging": false
