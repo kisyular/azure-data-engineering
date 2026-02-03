@@ -317,7 +317,7 @@ az storage blob upload-batch \
 **Architecture:**
 
 ```architecture
-SQL Server (logical server) → contains → SQL Database
+SQL Server (logical server) -> contains -> SQL Database
           ↓
     Firewall Rules (who can connect)
 ```
@@ -421,7 +421,7 @@ az sql server firewall-rule list \
 #        -U "$AZURE_SQL_DATABASE_USER" \
 #        -P "$AZURE_SQL_DATABASE_PASSWORD"
 
-# Or use Azure Portal → SQL Database → Query Editor
+# Or use Azure Portal -> SQL Database -> Query Editor
 echo "Connection string for your apps:"
 echo "$AZURE_SQL_CONNECTION_STRING"
 ```
@@ -561,14 +561,14 @@ You can run SQL scripts against your Azure SQL Database using several methods:
 
 3. **Run your SQL script**:
    - Open `sql/spotify_initial_load.sql`
-   - `Cmd + Shift + P` → `MS SQL: Execute Query`
+   - `Cmd + Shift + P` -> `MS SQL: Execute Query`
    - Select your saved connection
    - **Quick tip**: Right-click in the SQL file and select "Execute Query"
 
 ### Option 2: Azure Portal Query Editor
 
 ```text
-Azure Portal → SQL Database → Query Editor → Login → Paste & Run
+Azure Portal -> SQL Database -> Query Editor -> Login -> Paste & Run
 ```
 
 ### Option 3: sqlcmd CLI
@@ -605,7 +605,7 @@ Linked services are connection strings that allow Data Factory to connect to ext
 **Via Data Factory Studio (UI):**
 
 1. **Open Data Factory Studio**:
-   - Go to Azure Portal → Data Factory → Click "Launch Studio"
+   - Go to Azure Portal -> Data Factory -> Click "Launch Studio"
 
 2. **Navigate to Linked Services**:
    - Click the "Manage" tab (gear icon on the left sidebar)
@@ -654,7 +654,7 @@ az datafactory linked-service create \
 **Via Data Factory Studio (UI):**
 
 1. **Navigate to Linked Services**:
-   - Click the "Manage" tab → "Linked services" → "+ New"
+   - Click the "Manage" tab -> "Linked services" -> "+ New"
 
 2. **Select Azure Data Lake Storage Gen2**:
    - Search for "Azure Data Lake Storage Gen2"
@@ -775,7 +775,7 @@ az storage blob upload \
 
 ### Step 9.2: Create Pipeline Parameters
 
-1. **Open Data Factory Studio** → **Author** tab → **Pipelines** → **+ New Pipeline**
+1. **Open Data Factory Studio** -> **Author** tab -> **Pipelines** -> **+ New Pipeline**
 2. **Name**: `incremental_ingestion_pipeline`
 3. **Add Pipeline Parameters** (click on canvas background to see properties):
 
@@ -797,7 +797,7 @@ az storage blob upload \
 
 Variables store temporary values during pipeline execution.
 
-1. **Click on canvas background** → **Variables** tab
+1. **Click on canvas background** -> **Variables** tab
 2. **Add Variable**:
    - **Name**: `current_time_value`
    - **Type**: String
@@ -817,9 +817,9 @@ The Lookup activity reads the last CDC timestamp from the JSON file.
 
 #### B. Create JSON Dataset (Dynamic)
 
-1. In the **Settings** tab of Lookup activity → **Source dataset** → **+ New**
-2. Select **Azure Data Lake Storage Gen2** → **Continue**
-3. Select format: **JSON** → **Continue**
+1. In the **Settings** tab of Lookup activity -> **Source dataset** -> **+ New**
+2. Select **Azure Data Lake Storage Gen2** -> **Continue**
+3. Select format: **JSON** -> **Continue**
 4. Configure dataset:
    - **Name**: `azure_data_lake_storage_json_dynamic`
    - **Linked service**: `azure_data_lake_4_data_engineering`
@@ -856,7 +856,7 @@ Back in the Lookup activity's **Settings** tab:
   - `container`: `bronze`
   - `folder`: `change_data_capture`
   - `file`: `change_data_capture.json`
-- **First row only**: ✓ (checked)
+- **First row only**: - (checked)
 
 ---
 
@@ -866,7 +866,7 @@ This captures the current timestamp for naming the output file.
 
 1. Drag **Set Variable** activity onto canvas
 2. **Name**: `set_current_time_value`
-3. Connect **Lookup** → **Set Variable** (drag the green arrow)
+3. Connect **Lookup** -> **Set Variable** (drag the green arrow)
 4. In **Settings** tab:
    - **Variable name**: `current_time_value`
    - **Value**: Click **Add dynamic content** and enter:
@@ -885,14 +885,14 @@ This reads incremental data from SQL and writes to Data Lake.
 
 1. Drag **Copy Data** activity onto canvas
 2. **Name**: `azure_sql_to_lake`
-3. Connect **Set Variable** → **Copy Data** (drag the green arrow)
+3. Connect **Set Variable** -> **Copy Data** (drag the green arrow)
 
-> **IMPORTANT**: The order must be: Lookup → Set Variable → Copy Data
+> **IMPORTANT**: The order must be: Lookup -> Set Variable -> Copy Data
 
 #### B. Configure Source (SQL Database)
 
-1. **Source** tab → **Source dataset** → **+ New**
-2. Select **Azure SQL Database** → **Continue**
+1. **Source** tab -> **Source dataset** -> **+ New**
+2. Select **Azure SQL Database** -> **Continue**
 3. Configure dataset:
    - **Name**: `azure_sql_data_source_pipeline`
    - **Linked service**: `azure_db_4_data_engineering`
@@ -909,16 +909,16 @@ This reads incremental data from SQL and writes to Data Lake.
    ```
 
    > **Explanation**:
-   > - `@{pipeline().parameters.schema}` → `dbo`
-   > - `@{pipeline().parameters.table}` → `dim_user`
-   > - `@{pipeline().parameters.change_data_capture_column}` → `updated_at`
-   > - `@{activity('look_up_last_cdc_value').output.firstRow.cdc_value}` → Value from JSON file
+   > - `@{pipeline().parameters.schema}` -> `dbo`
+   > - `@{pipeline().parameters.table}` -> `dim_user`
+   > - `@{pipeline().parameters.change_data_capture_column}` -> `updated_at`
+   > - `@{activity('look_up_last_cdc_value').output.firstRow.cdc_value}` -> Value from JSON file
 
 #### C. Create Parquet Dataset (Dynamic)
 
-1. **Sink** tab → **Sink dataset** → **+ New**
-2. Select **Azure Data Lake Storage Gen2** → **Continue**
-3. Select format: **Parquet** → **Continue**
+1. **Sink** tab -> **Sink dataset** -> **+ New**
+2. Select **Azure Data Lake Storage Gen2** -> **Continue**
+3. Select format: **Parquet** -> **Continue**
 4. Configure dataset:
    - **Name**: `azure_data_lake_storage_parquet_dynamic`
    - **Linked service**: `azure_data_lake_4_data_engineering`
@@ -970,15 +970,15 @@ This activity queries the actual maximum CDC timestamp from the source table, en
 
 1. Drag **Script** activity onto canvas (from **General** section)
 2. **Name**: `script_get_max_cdc`
-3. Connect **azure_sql_to_lake** → **script_get_max_cdc** (drag the green arrow)
+3. Connect **azure_sql_to_lake** -> **script_get_max_cdc** (drag the green arrow)
 
 #### B. Configure Linked Service
 
-1. **Settings** tab → **Linked service** → Select `azure_db_4_data_engineering`
+1. **Settings** tab -> **Linked service** -> Select `azure_db_4_data_engineering`
 
 #### C. Configure Script Query
 
-1. **Script** field → Click **Add dynamic content** and enter:
+1. **Script** field -> Click **Add dynamic content** and enter:
 
    ```sql
    SELECT MAX(@{pipeline().parameters.change_data_capture_column}) AS max_cdc_value 
@@ -1003,13 +1003,13 @@ This activity automatically updates the CDC tracking file with the max CDC value
 
 1. Drag **Copy Data** activity onto canvas
 2. **Name**: `update_last_cdc`
-3. Connect **script_get_max_cdc** → **update_last_cdc** (drag the green arrow)
+3. Connect **script_get_max_cdc** -> **update_last_cdc** (drag the green arrow)
 
-> **IMPORTANT**: Activity order: Lookup → Set Variable → Copy Data (Incremental) → Script → Copy Data (Update CDC)
+> **IMPORTANT**: Activity order: Lookup -> Set Variable -> Copy Data (Incremental) -> Script -> Copy Data (Update CDC)
 
 #### B. Configure Source (Empty Dataset)
 
-1. **Source** tab → **Source dataset** → Select `azure_data_lake_storage_json_dynamic`
+1. **Source** tab -> **Source dataset** -> Select `azure_data_lake_storage_json_dynamic`
 2. **Dataset parameters**:
    - `container`: `bronze`
    - `folder`: `change_data_capture`
@@ -1035,7 +1035,7 @@ az storage blob upload \
 
 #### C. Configure Sink (CDC Tracking File)
 
-1. **Sink** tab → **Sink dataset** → Select `azure_data_lake_storage_json_dynamic`
+1. **Sink** tab -> **Sink dataset** -> Select `azure_data_lake_storage_json_dynamic`
 2. **Dataset parameters**:
    - `container`: `bronze`
    - `folder`: `change_data_capture`
@@ -1077,7 +1077,7 @@ Before running, verify:
 - Sink **File pattern** is set to **Set of objects**
 - Additional column name is `cdc_value`
 - Additional column value uses the Script activity output
-- Activity dependency: Script → Copy Data (Update CDC)
+- Activity dependency: Script -> Copy Data (Update CDC)
 
 This configuration should create a clean JSON file: `{"cdc_value": "2026-02-01T12:45:30Z"}`
 
@@ -1087,7 +1087,7 @@ This configuration should create a clean JSON file: `{"cdc_value": "2026-02-01T1
 
 1. Drag **Web** activity onto canvas (from **General** section)
 2. **Name**: `update_last_cdc`
-3. Connect **script_get_max_cdc** → **update_last_cdc** (drag the green arrow)
+3. Connect **script_get_max_cdc** -> **update_last_cdc** (drag the green arrow)
 
 **Configure Web Activity:**
 
@@ -1137,15 +1137,15 @@ If you want to keep using Copy Data, here's how to fix the issue:
 
 1. Drag **Copy Data** activity onto canvas
 2. **Name**: `update_last_cdc`
-3. Connect **azure_sql_to_lake** → **update_last_cdc** (drag the green arrow)
+3. Connect **azure_sql_to_lake** -> **update_last_cdc** (drag the green arrow)
 
-> **IMPORTANT**: Activity order: Lookup → Set Variable → Copy Data (Incremental) → Script → Copy Data (Update CDC)
+> **IMPORTANT**: Activity order: Lookup -> Set Variable -> Copy Data (Incremental) -> Script -> Copy Data (Update CDC)
 
 #### B. Configure Source (Empty Dataset) - JSON
 
 Since we're creating new content (not copying from a source), we'll use a simple JSON dataset:
 
-1. **Source** tab → **Source dataset** → Select `azure_data_lake_storage_json_dynamic`
+1. **Source** tab -> **Source dataset** -> Select `azure_data_lake_storage_json_dynamic`
 2. **Dataset parameters**:
    - `container`: `bronze`
    - `folder`: `change_data_capture`
@@ -1155,7 +1155,7 @@ Since we're creating new content (not copying from a source), we'll use a simple
 
 #### C. Configure Sink (CDC Tracking File) - JSON
 
-1. **Sink** tab → **Sink dataset** → Select `azure_data_lake_storage_json_dynamic`
+1. **Sink** tab -> **Sink dataset** -> Select `azure_data_lake_storage_json_dynamic`
 2. **Dataset parameters**:
    - `container`: `bronze`
    - `folder`: `change_data_capture`
@@ -1193,7 +1193,7 @@ This writes the actual maximum timestamp from the processed data to the JSON fil
 
 1. Drag **If Condition** activity onto canvas (from **Iteration & conditionals** section)
 2. **Name**: `if_new_record_added`
-3. Connect **azure_sql_to_lake** → **if_new_record_added** (drag the green arrow)
+3. Connect **azure_sql_to_lake** -> **if_new_record_added** (drag the green arrow)
 4. **Remove** the existing connection from **azure_sql_to_lake** to **script_get_max_cdc**
 
 #### B. Configure the Condition Expression
@@ -1221,7 +1221,7 @@ When the condition is **True** (new records found), we proceed with the CDC upda
 
 1. Drag **script_get_max_cdc** activity into the True branch canvas
 2. Drag **update_last_cdc** activity into the True branch canvas
-3. Connect **script_get_max_cdc** → **update_last_cdc**
+3. Connect **script_get_max_cdc** -> **update_last_cdc**
 
 > **Note:** You may need to recreate these activities if they were already connected differently. The True branch should contain the complete CDC update flow.
 
@@ -1288,8 +1288,8 @@ When the condition is **False** (no new records), we delete the empty file:
 
 **New behavior:**
 
-- If new records found → Update CDC tracking file with max value
-- If no new records → Delete empty file, keep CDC value unchanged
+- If new records found -> Update CDC tracking file with max value
+- If no new records -> Delete empty file, keep CDC value unchanged
 - CDC tracking file only updates when data is actually processed
 
 ---
@@ -1300,8 +1300,8 @@ When the condition is **False** (no new records), we delete the empty file:
 
 Currently, we're using a single CDC tracking file (`change_data_capture.json`) for all tables. This creates a critical issue:
 
-- Pipeline runs for `dim_user` → Updates `cdc_value` to `2026-02-01T10:00:00Z`
-- Pipeline runs for `dim_product` → Reads `2026-02-01T10:00:00Z` (incorrect!)
+- Pipeline runs for `dim_user` -> Updates `cdc_value` to `2026-02-01T10:00:00Z`
+- Pipeline runs for `dim_product` -> Reads `2026-02-01T10:00:00Z` (incorrect!)
 - Result: `dim_product` skips all records before this timestamp, losing data
 
 **Root Cause:** All tables share the same CDC tracking file, so each table's CDC value overwrites the previous one.
@@ -1314,7 +1314,7 @@ Currently, we're using a single CDC tracking file (`change_data_capture.json`) f
 
 Update the Lookup activity to read from table-specific CDC files.
 
-1. **Open the pipeline** → Click on **look_up_last_cdc_value** activity
+1. **Open the pipeline** -> Click on **look_up_last_cdc_value** activity
 2. **Go to Settings tab**
 3. **Modify the file parameter**:
    - Current value: `change_data_capture.json`
@@ -1340,7 +1340,7 @@ Update the Copy Data activity that writes CDC values to use table-specific file 
 
 1. **Navigate to True branch** of `if_new_record_added` activity
 2. **Click on update_last_cdc** Copy Data activity
-3. **Go to Sink tab** → **Dataset properties**
+3. **Go to Sink tab** -> **Dataset properties**
 4. **Modify the file parameter**:
    - Current value: `change_data_capture.json`
    - New value: Click **Add dynamic content** and enter:
@@ -1418,7 +1418,7 @@ for table in dim_user dim_artist dim_track dim_date fact_stream
         --file change_data_capture/$table"_cdc.json" \
         --auth-mode key \
         --overwrite
-    echo "✓ Created CDC file for $table"
+    echo "- Created CDC file for $table"
 end
 ```
 
@@ -1433,17 +1433,20 @@ for table in dim_user dim_artist dim_track dim_date fact_stream; do
         --file change_data_capture/${table}_cdc.json \
         --auth-mode key \
         --overwrite
-    echo "✓ Created CDC file for $table"
+    echo "- Created CDC file for $table"
 done
 ```
 
-> **Note:** These are the actual Spotify database tables:
+> **Note:** These are the actual Spotify database tables with their CDC columns:
 >
-> - `dim_user` - Spotify users
-> - `dim_artist` - Spotify artists  
-> - `dim_track` - Spotify tracks
-> - `dim_date` - Date dimension
-> - `fact_stream` - Streaming facts/history
+> - `dim_user` - Spotify users (CDC: `updated_at`)
+> - `dim_artist` - Spotify artists (CDC: `updated_at`)
+> - `dim_track` - Spotify tracks (CDC: `updated_at`)
+> - `dim_date` - Date dimension (**No CDC** - use full load)
+> - `fact_stream` - Streaming facts/history (CDC: `stream_timestamp`)
+>
+> **Important:** `dim_date` is a static reference table and should be loaded fully without CDC.
+> `fact_stream` uses `stream_timestamp` instead of `updated_at`.
 
 ---
 
@@ -1554,18 +1557,18 @@ Problem: All tables share one CDC value
 Lookup Activity:
   file: @concat(pipeline().parameters.table, '_cdc.json')
   Examples:
-    - dim_user → dim_user_cdc.json
-    - dim_artist → dim_artist_cdc.json
-    - dim_track → dim_track_cdc.json
-    - fact_stream → fact_stream_cdc.json
+    - dim_user -> dim_user_cdc.json
+    - dim_artist -> dim_artist_cdc.json
+    - dim_track -> dim_track_cdc.json
+    - fact_stream -> fact_stream_cdc.json
 
 Update CDC Activity:
   file: @concat(pipeline().parameters.table, '_cdc.json')
   Examples:
-    - dim_user → dim_user_cdc.json
-    - dim_artist → dim_artist_cdc.json
-    - dim_track → dim_track_cdc.json
-    - fact_stream → fact_stream_cdc.json
+    - dim_user -> dim_user_cdc.json
+    - dim_artist -> dim_artist_cdc.json
+    - dim_track -> dim_track_cdc.json
+    - fact_stream -> fact_stream_cdc.json
 
 Solution: Each table has independent CDC tracking
 ```
@@ -1613,7 +1616,339 @@ Solution: Each table has independent CDC tracking
 
 ---
 
-### Step 9.11: Validate and Debug
+#### H. Advanced: Parameterized Backfilling
+
+**Problem:** What if you need to reload historical data for a specific time period?
+
+**Current Limitation:**
+
+- Manual approach: Edit CDC file directly to reset to an old date
+- Example: Change `{"cdc_value": "2026-01-15"}` to `{"cdc_value": "2024-01-01"}`
+- Issue: Requires manual Azure portal access, error-prone, no audit trail
+
+**Better Solution:** Add a `backfill_date` parameter to control CDC starting point programmatically.
+
+##### How Backfilling Works
+
+```backfill_flow
+Normal Incremental Load:
+  CDC file: {"cdc_value": "2026-01-15"}
+  Pipeline reads: Use "2026-01-15" from CDC file
+  SQL Query: WHERE updated_at > '2026-01-15'
+  Result: Only records after 2026-01-15
+
+Backfill Mode (with backfill_date parameter):
+  CDC file: {"cdc_value": "2026-01-15"} (unchanged)
+  Parameter: backfill_date = "2024-01-01"
+  Pipeline reads: Use "2024-01-01" from parameter (override CDC file)
+  SQL Query: WHERE updated_at > '2024-01-01'
+  Result: All records from 2024-01-01 to now (including already loaded data)
+```
+
+**Use Cases:**
+
+1. Data quality issue discovered - need to reload last 3 months
+2. Source system had bug - need to reprocess specific date range
+3. New transformation logic - need to reload historical data
+4. Testing pipeline with historical data subset
+
+##### Implementation Steps
+
+###### Step 1: Add Backfill Date Parameter
+
+1. Open pipeline in Data Factory Studio
+2. Click on canvas background
+3. Go to **Parameters** tab
+4. Click **+ New**
+5. Add parameter:
+   - **Name**: `backfill_date`
+   - **Type**: String
+   - **Default value**: (leave empty)
+
+###### Step 2: Modify SQL Query in Copy Data Activity
+
+Update the `azure_sql_to_lake` Copy Data activity's source query:
+
+**Current Query:**
+
+```sql
+SELECT * 
+FROM @{pipeline().parameters.schema}.@{pipeline().parameters.table} 
+WHERE @{pipeline().parameters.change_data_capture_column} > '@{activity('look_up_last_cdc_value').output.firstRow.cdc_value}'
+```
+
+**New Query with Backfill Logic:**
+
+```sql
+SELECT * 
+FROM @{pipeline().parameters.schema}.@{pipeline().parameters.table} 
+WHERE @{pipeline().parameters.change_data_capture_column} > '@{if(empty(pipeline().parameters.backfill_date), activity('look_up_last_cdc_value').output.firstRow.cdc_value, pipeline().parameters.backfill_date)}'
+```
+
+**How the Logic Works:**
+
+```logic_breakdown
+@{if(
+    empty(pipeline().parameters.backfill_date),     <- Check if backfill_date is empty
+    activity('look_up_last_cdc_value').output.firstRow.cdc_value,  <- If empty: use CDC file (normal mode)
+    pipeline().parameters.backfill_date             <- If provided: use backfill_date (backfill mode)
+)}
+
+Examples:
+  backfill_date = "" (empty)     -> Use CDC file value: "2026-01-15"
+  backfill_date = "2024-01-01"   -> Use parameter value: "2024-01-01"
+  backfill_date = "2025-12-01"   -> Use parameter value: "2025-12-01"
+```
+
+##### Testing Scenarios
+
+###### Scenario 1: Normal Incremental Load (No Backfill)
+
+```bash
+# Debug pipeline with normal parameters
+Parameters:
+  schema: dbo
+  table: dim_user
+  change_data_capture_column: updated_at
+  backfill_date: (leave empty)
+
+Expected:
+  SQL executes: WHERE updated_at > '2026-01-15' (from CDC file)
+  Loads: Only new records since last run
+  CDC file updates: To latest max timestamp
+```
+
+###### Scenario 2: Backfill Last 30 Days
+
+```bash
+# Calculate date 30 days ago
+# For 2026-02-03, that would be 2026-01-04
+
+Parameters:
+  schema: dbo
+  table: dim_user
+  change_data_capture_column: updated_at
+  backfill_date: 2026-01-04
+
+Expected:
+  SQL executes: WHERE updated_at > '2026-01-04' (from parameter)
+  Loads: All records from 2026-01-04 to now
+  CDC file updates: To latest max timestamp
+  Note: May create duplicate records if data already loaded
+```
+
+###### Scenario 3: Full Historical Reload
+
+```bash
+Parameters:
+  schema: dbo
+  table: dim_user
+  change_data_capture_column: updated_at
+  backfill_date: 1900-01-01
+
+Expected:
+  SQL executes: WHERE updated_at > '1900-01-01' (from parameter)
+  Loads: ALL historical records
+  CDC file updates: To latest max timestamp
+  Note: Will duplicate all existing data
+```
+
+##### Backfill Flow Diagram
+
+```mermaid
+graph TB
+    A[Pipeline Starts] --> B{backfill_date<br/>parameter<br/>provided?}
+    
+    B -->|NO - Empty| C[Read CDC File]
+    C --> D[Use CDC Value<br/>2026-01-15]
+    D --> E[Query: WHERE updated_at > '2026-01-15']
+    E --> F[Copy NEW Records Only]
+    
+    B -->|YES - Provided| G[Use backfill_date<br/>Parameter]
+    G --> H[Use Parameter Value<br/>2024-01-01]
+    H --> I[Query: WHERE updated_at > '2024-01-01']
+    I --> J[Copy HISTORICAL Records]
+    
+    F --> K[Update CDC File<br/>with MAX timestamp]
+    J --> K
+    
+    K --> L[Pipeline Complete]
+    
+    style B fill:#ffe5cc
+    style C fill:#e1f5ff
+    style G fill:#ffcccc
+    style K fill:#e8f5e9
+```
+
+##### Important Considerations
+
+###### 1. Duplicate Data Handling
+
+Backfilling will reload data that may already exist in your data lake:
+
+```handling_duplicates
+Problem:
+  - dim_user already has data from 2026-01-01 to 2026-01-15
+  - You backfill from 2026-01-01
+  - Result: Two copies of the same data with different timestamps
+
+Solutions:
+  A. Delete existing files before backfill:
+     az storage blob delete-batch \
+         --account-name "$AZURE_STORAGE_ACCOUNT_NAME" \
+         --source bronze \
+         --pattern "dim_user/dim_user_*.parquet"
+  
+  B. Use downstream deduplication:
+     - In silver layer, use DISTINCT or ROW_NUMBER()
+     - Keep only latest version based on ingestion timestamp
+     
+  C. Load to separate backfill folder:
+     - Modify folder parameter: "dim_user_backfill"
+     - Merge later with validation
+```
+
+###### 2. CDC File Behavior
+
+The CDC file will be updated to the MAX timestamp from the backfilled data:
+
+```cdc_update_behavior
+Before Backfill:
+  CDC file: {"cdc_value": "2026-01-15"}
+
+During Backfill (parameter: 2024-01-01):
+  Query loads: Records from 2024-01-01 to 2026-02-03
+  MAX found: 2026-02-03 (latest record)
+
+After Backfill:
+  CDC file: {"cdc_value": "2026-02-03"} (updated to max)
+
+Next Run (no backfill_date):
+  Will load: Only records > 2026-02-03
+```
+
+###### 3. Performance Impact
+
+Backfilling large date ranges impacts pipeline performance:
+
+```performance_tips
+Small Backfill (< 1 month):
+  - Acceptable for ad-hoc fixes
+  - Monitor pipeline duration
+
+Medium Backfill (1-6 months):
+  - Consider running during off-hours
+  - May timeout on Basic SQL tier
+  - Increase SQL DTU temporarily
+
+Large Backfill (> 6 months):
+  - Break into smaller chunks:
+    Run 1: backfill_date = 2024-01-01
+    Run 2: backfill_date = 2024-02-01
+    Run 3: backfill_date = 2024-03-01
+  - Or use separate full-load pipeline
+```
+
+##### Best Practices
+
+1. **Document Backfill Operations**
+
+   ```bash
+   # Log why backfill was performed
+   echo "2026-02-03: Backfilling dim_user from 2024-01-01 due to data quality issue #1234" >> backfill_log.txt
+   ```
+
+2. **Test on Non-Production First**
+   - Run backfill on dev/test environment
+   - Validate record counts before production
+
+3. **Monitor Backfill Progress**
+   - Check pipeline run duration
+   - Verify record counts match expectations
+   - Review CDC file updates
+
+4. **Cleanup Strategy**
+
+   ```bash
+   # After successful backfill, optionally clean up old duplicates
+   # This should be done in silver layer transformation
+   ```
+
+5. **Alternative: Separate Backfill Pipeline**
+   - Create dedicated pipeline for historical loads
+   - Uses different folder structure
+   - Doesn't update CDC files
+   - Merge carefully with incremental data
+
+---
+
+### Step 9.11: Understanding CDC Columns by Table Type
+
+**Critical**: Not all tables have the same CDC tracking column!
+
+#### Spotify Database Schema CDC Columns
+
+| Table | CDC Column | Strategy | Notes |
+| ------- | ----------- | ---------- | ------- |
+| `dim_user` | `updated_at` | Incremental | User profile changes |
+| `dim_artist` | `updated_at` | Incremental | Artist metadata changes |
+| `dim_track` | `updated_at` | Incremental | Track metadata changes |
+| `dim_date` | None | **Full Load** | Static calendar dimension - no changes |
+| `fact_stream` | `stream_timestamp` | Incremental | Use event timestamp, not `updated_at` |
+
+**Key Insights:**
+
+1. **Dimension Tables (dim_user, dim_artist, dim_track)**:
+   - Have `updated_at` column for tracking changes
+   - Use standard CDC pattern: `WHERE updated_at > last_cdc_value`
+
+2. **Date Dimension (dim_date)**:
+   - NO timestamp column (just calendar dates like 2024-01-01, 2024-01-02...)
+   - Static reference data - doesn't change
+   - **Solution**: Use full load without CDC
+   - Query: `SELECT * FROM dbo.dim_date` (no WHERE clause)
+
+3. **Fact Table (fact_stream)**:
+   - NO `updated_at` column
+   - Has `stream_timestamp` - when the stream occurred
+   - Facts are immutable - never updated, only inserted
+   - **Solution**: Use `stream_timestamp` for CDC
+   - Query: `WHERE stream_timestamp > last_cdc_value`
+
+#### Pipeline Parameter Patterns
+
+**For dimension tables with updated_at:**
+
+```parameters
+schema: dbo
+table: dim_user
+change_data_capture_column: updated_at
+```
+
+**For fact_stream:**
+
+```parameters
+schema: dbo
+table: fact_stream
+change_data_capture_column: stream_timestamp
+```
+
+**For dim_date (full load):**
+
+```parameters
+schema: dbo
+table: dim_date
+change_data_capture_column: (leave empty or use a dummy value - SQL won't use it)
+```
+
+And modify the Copy Data SQL query for dim_date:
+
+```sql
+-- For dim_date only - no WHERE clause
+SELECT * FROM @{pipeline().parameters.schema}.@{pipeline().parameters.table}
+```
+
+### Step 9.12: Validate and Debug
 
 #### Validate Pipeline
 
@@ -1623,50 +1958,94 @@ Solution: Each table has independent CDC tracking
    - Activities not connected in correct order
    - Missing parameters
    - Incorrect dynamic expressions
+   - Wrong CDC column name for the table type
 
 #### Debug Pipeline
 
 1. Click **Debug** button
-2. Enter parameter values:
+2. **Test with dim_user first** (it has `updated_at`):
    - `schema`: `dbo`
    - `table`: `dim_user`
-   - `change_data_capture_column`: `updated_at` (or your timestamp column)
+   - `change_data_capture_column`: `updated_at`
 3. Click **OK**
+
+**After success, test other tables:**
+
+```test_sequence
+dim_user      -> change_data_capture_column: updated_at
+dim_artist    -> change_data_capture_column: updated_at
+dim_track     -> change_data_capture_column: updated_at
+fact_stream   -> change_data_capture_column: stream_timestamp
+dim_date      -> Requires SQL query modification for full load
+```
 
 **Expected flow (with new records):**
 
 ```debug_flow
-✓ look_up_last_cdc_value    → Reads: {"cdc_value": "1900-01-01"}
-✓ set_current_time_value    → Sets: "2026-02-01T14:30:00Z"
-✓ azure_sql_to_lake         → Copies records where updated_at > '1900-01-01'
-✓ if_new_record_added       → Condition: dataRead > 0 = TRUE
+- look_up_last_cdc_value    -> Reads: {"cdc_value": "1900-01-01"}
+- set_current_time_value    -> Sets: "2026-02-01T14:30:00Z"
+- azure_sql_to_lake         -> Copies records where updated_at > '1900-01-01'
+- if_new_record_added       -> Condition: dataRead > 0 = TRUE
   ├─ TRUE branch:
-  ✓ script_get_max_cdc      → Queries: MAX(updated_at) = "2026-02-01T12:45:30Z"
-  ✓ update_last_cdc         → Writes: {"cdc_value": "2026-02-01T12:45:30Z"}
+  - script_get_max_cdc      -> Queries: MAX(updated_at) = "2026-02-01T12:45:30Z"
+  - update_last_cdc         -> Writes: {"cdc_value": "2026-02-01T12:45:30Z"}
 ```
 
 **Expected flow (no new records):**
 
 ```debug_flow
-✓ look_up_last_cdc_value    → Reads: {"cdc_value": "2026-02-01T12:45:30Z"}
-✓ set_current_time_value    → Sets: "2026-02-03T09:15:00Z"
-✓ azure_sql_to_lake         → No records found (dataRead = 0)
-✓ if_new_record_added       → Condition: dataRead > 0 = FALSE
+- look_up_last_cdc_value    -> Reads: {"cdc_value": "2026-02-01T12:45:30Z"}
+- set_current_time_value    -> Sets: "2026-02-03T09:15:00Z"
+- azure_sql_to_lake         -> No records found (dataRead = 0)
+- if_new_record_added       -> Condition: dataRead > 0 = FALSE
   ├─ FALSE branch:
-  ✓ delete_empty_file       → Deletes: dim_user_2026-02-03T09:15:00Z.parquet
+  - delete_empty_file       -> Deletes: dim_user_2026-02-03T09:15:00Z.parquet
 ```
 
 ---
 
-### Step 9.11: Troubleshooting Common Errors
+### Step 9.13: Troubleshooting Common Errors
+
+#### Error: "Invalid column name 'updated_at'" or similar column errors
+
+**Cause**: The table doesn't have the CDC column you specified in parameters.
+
+**Diagnosis:**
+
+1. Check the actual table schema in SQL
+2. Verify which tables have `updated_at` vs other timestamp columns
+3. Review the table type (dimension, fact, or reference)
+
+**Fix by Table Type:**
+
+| Table | Error | Root Cause | Solution |
+| ------- | ------- | ------------ | ---------- |
+| `fact_stream` | `Invalid column name 'updated_at'` | Fact table uses `stream_timestamp` | Use parameter: `change_data_capture_column: stream_timestamp` |
+| `dim_date` | `Invalid column name 'updated_at'` | Date dimension has no timestamp | Modify SQL to full load: `SELECT * FROM dbo.dim_date` |
+| Any table | `Invalid column name 'ModifiedDate'` | Wrong column name | Check schema, use correct column (e.g., `updated_at`) |
+
+**Example SQL fixes:**
+
+```sql
+-- CORRECT for dim_user, dim_artist, dim_track
+SELECT * FROM @{pipeline().parameters.schema}.@{pipeline().parameters.table}
+WHERE @{pipeline().parameters.change_data_capture_column} > '@{activity('look_up_last_cdc_value').output.firstRow.cdc_value}'
+
+-- CORRECT for fact_stream (use stream_timestamp parameter)
+SELECT * FROM @{pipeline().parameters.schema}.@{pipeline().parameters.table}
+WHERE @{pipeline().parameters.change_data_capture_column} > '@{activity('look_up_last_cdc_value').output.firstRow.cdc_value}'
+
+-- CORRECT for dim_date (full load - no WHERE clause)
+SELECT * FROM @{pipeline().parameters.schema}.@{pipeline().parameters.table}
+```
 
 #### Error: "BadRequest" with no message
 
 **Likely causes:**
 
 1. **Activity dependency order is wrong**
-   - Copy Data → Lookup (wrong!)
-   - Lookup → Set Variable → Copy Data (Incremental) → Copy Data (Update CDC) (correct!)
+   - Copy Data -> Lookup (wrong!)
+   - Lookup -> Set Variable -> Copy Data (Incremental) -> Copy Data (Update CDC) (correct!)
 
 2. **JSON field name mismatch**
    - JSON file has: `"change_data_capture_column"`
@@ -1684,7 +2063,7 @@ Solution: Each table has independent CDC tracking
 **Fix**: Check the green arrows (dependencies). Should be:
 
 ```pipeline_flow
-Lookup → Set Variable → Copy Data (Incremental) → Script → Copy Data (Update CDC)
+Lookup -> Set Variable -> Copy Data (Incremental) -> Script -> Copy Data (Update CDC)
 ```
 
 #### Error: Column does not exist or Invalid object name
@@ -1693,9 +2072,39 @@ Lookup → Set Variable → Copy Data (Incremental) → Script → Copy Data (Up
 
 **Fix**:
 
-1. Check your table schema (e.g., `dbo.dim_user` not `Users`)
-2. Update the `table` parameter to match exactly (case-sensitive)
-3. Update the `change_data_capture_column` parameter to match your actual timestamp column (e.g., `updated_at`, `ModifiedDate`, `LastUpdated`)
+1. **Check actual table schema** - Verify in Azure SQL:
+
+   ```sql
+   -- List all columns for a table
+   SELECT COLUMN_NAME, DATA_TYPE 
+   FROM INFORMATION_SCHEMA.COLUMNS 
+   WHERE TABLE_NAME = 'dim_user'
+   
+   -- Check for timestamp columns
+   SELECT TABLE_NAME, COLUMN_NAME 
+   FROM INFORMATION_SCHEMA.COLUMNS 
+   WHERE COLUMN_NAME IN ('updated_at', 'stream_timestamp', 'ModifiedDate', 'LastUpdated')
+   ORDER BY TABLE_NAME
+   ```
+
+2. **Match parameter to actual column**:
+   - For `dim_user`, `dim_artist`, `dim_track`: use `updated_at`
+   - For `fact_stream`: use `stream_timestamp`
+   - For `dim_date`: no CDC column needed (use full load)
+
+3. **Update table parameter** to match exactly (case-sensitive):
+   - Correct: `dbo.dim_user`
+   - Wrong: `Users`, `dbo.users`
+
+**Quick Reference:**
+
+```table_columns
+dim_user:    user_id, user_name, country, subscription_type, start_date, end_date, updated_at
+dim_artist:  artist_id, artist_name, genre, country, updated_at
+dim_track:   track_id, track_name, artist_id, album_name, duration_sec, release_date, updated_at
+dim_date:    date_key, date, day, month, year, weekday (NO timestamp)
+fact_stream: stream_id, user_id, track_id, date_key, listen_duration, device_type, stream_timestamp
+```
 
 #### Error: CDC tracking file is empty or has wrong format after update
 
@@ -1766,7 +2175,7 @@ cat downloaded_cdc.json
    - Folder: `@pipeline().parameters.table`
    - File: `@concat(pipeline().parameters.table, '_', variables('current_time_value'))`
 
-2. Ensure the pipeline flow is: Copy Data → If Condition → (True: Script + Update CDC) OR (False: Delete)
+2. Ensure the pipeline flow is: Copy Data -> If Condition -> (True: Script + Update CDC) OR (False: Delete)
 
 ---
 
@@ -1790,7 +2199,7 @@ The pipeline now fully automates the CDC process with accurate max values - no m
 
 If you need to manually adjust the CDC value:
 
-1. Go to **Storage Account** → **Containers** → **bronze** → **change_data_capture**
+1. Go to **Storage Account** -> **Containers** -> **bronze** -> **change_data_capture**
 2. Click on `change_data_capture.json`
 3. Click **Edit**
 4. Update to desired timestamp:
@@ -1835,14 +2244,14 @@ graph TB
 
 **Pipeline Logic:**
 
-- **Lookup** → Reads last CDC value
-- **Set Variable** → Captures current timestamp
-- **Copy Data** → Incrementally copies new records
-- **If Condition** → Checks if data was copied (`dataRead > 0`)
+- **Lookup** -> Reads last CDC value
+- **Set Variable** -> Captures current timestamp
+- **Copy Data** -> Incrementally copies new records
+- **If Condition** -> Checks if data was copied (`dataRead > 0`)
   - **True Branch**: Update CDC tracking
-    - **Script** → Gets MAX(CDC column) from source
-    - **Copy Data** → Updates tracking file with new CDC value
+    - **Script** -> Gets MAX(CDC column) from source
+    - **Copy Data** -> Updates tracking file with new CDC value
   - **False Branch**: Clean up
-    - **Delete** → Removes empty Parquet file
+    - **Delete** -> Removes empty Parquet file
 
 ---
