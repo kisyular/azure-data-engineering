@@ -1265,25 +1265,24 @@ When the condition is **False** (no new records), we delete the empty file:
 
 #### E. Updated Pipeline Flow
 
-```pipeline_flow
-┌────────────┐   ┌────────────┐   ┌────────────┐   ┌────────────┐
-│  Lookup    │──>│Set Variable│──>│ Copy Data  │──>│If Condition│
-│Last CDC    │   │(curr_time) │   │(Increment) │   │(has data?) │
-└────────────┘   └────────────┘   └────────────┘   └──────┬─────┘
-                                                           │
-                                          ┌────────────────┴────────────────┐
-                                          │ TRUE (data > 0)                 │ FALSE (data = 0)
-                                          ▼                                 ▼
-                                   ┌────────────┐                    ┌────────────┐
-                                   │   Script   │                    │   Delete   │
-                                   │(Get Max)   │                    │Empty File  │
-                                   └──────┬─────┘                    └────────────┘
-                                          │
-                                          ▼
-                                   ┌────────────┐
-                                   │ Copy Data  │
-                                   │(Update CDC)│
-                                   └────────────┘
+```mermaid
+graph TB
+    A[Lookup Last CDC] -->|Reads JSON| B[Set Variable]
+    B -->|Stores utcNow| C[Copy Data Incremental]
+    C -->|Incremental Query| D{If Condition<br/>dataRead > 0?}
+    
+    D -->|TRUE: Data Found| E[Script: Get Max CDC]
+    E -->|Returns max_cdc_value| F[Update CDC Value]
+    
+    D -->|FALSE: No Data| G[Delete Empty File]
+    
+    style A fill:#006ba8
+    style B fill:#8b7500
+    style C fill:#195a1e
+    style D fill:#b45902
+    style E fill:#a0245c
+    style F fill:#00527a
+    style G fill:#8b0000
 ```
 
 **New behavior:**
