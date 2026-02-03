@@ -1774,10 +1774,10 @@ graph TB
     
     K --> L[Pipeline Complete]
     
-    style B fill:#ffe5cc
-    style C fill:#e1f5ff
-    style G fill:#ffcccc
-    style K fill:#e8f5e9
+    style B fill:#b45902
+    style C fill:#006ba8
+    style G fill:#8b0000
+    style K fill:#195a1e
 ```
 
 ##### Important Considerations
@@ -2230,16 +2230,16 @@ graph TB
     F -->|FALSE: No Data| J[Delete Empty File]
     J -->|Remove Empty Parquet| E
     
-    style A fill:#e1f5ff
-    style B fill:#fff4e1
-    style C fill:#e8f5e9
-    style D fill:#fce4ec
-    style E fill:#f3e5f5
-    style F fill:#ffe5cc
-    style G fill:#ffe5f1
-    style H fill:#e8f5e9
-    style I fill:#e1f5ff
-    style J fill:#ffcccc
+    style A fill:#006ba8
+    style B fill:#8b7500
+    style C fill:#195a1e
+    style D fill:#8b0052
+    style E fill:#4b0082
+    style F fill:#b45902
+    style G fill:#a0245c
+    style H fill:#195a1e
+    style I fill:#00527a
+    style J fill:#530a0a
 ```
 
 **Pipeline Logic:**
