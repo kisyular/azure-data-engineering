@@ -7,13 +7,13 @@
 				"type": "Copy",
 				"dependsOn": [
 					{
-						"activity": "look_up_last_cdc_value",
+						"activity": "current_time_value",
 						"dependencyConditions": [
-							"Completed"
+							"Succeeded"
 						]
 					},
 					{
-						"activity": "current_time_value",
+						"activity": "look_up_last_cdc_value",
 						"dependencyConditions": [
 							"Succeeded"
 						]
