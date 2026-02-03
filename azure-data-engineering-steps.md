@@ -714,28 +714,30 @@ This pipeline implements **Change Data Capture (CDC)** to incrementally load onl
 **Pipeline Flow:**
 
 ```pipeline_flow
-┌─────────────────┐      ┌──────────────────┐      ┌─────────────────┐      ┌─────────────────┐
-│  Lookup Last    │ ───> │  Set Variable    │ ───> │   Copy Data     │ ───> │   Copy Data     │
-│  CDC Timestamp  │      │  (current_time)  │      │ (Incremental)   │      │  (Update CDC)   │
-└─────────────────┘      └──────────────────┘      └─────────────────┘      └─────────────────┘
-        │                         │                         │                         │
-        │ Read from:             │ Captures:              │ Write to:              │ Update:
-        │ bronze/                │ utcNow()               │ bronze/dim_user/       │ bronze/cdc/
-        │ change_data_capture/   │                        │ dim_user_2026-02...    │ empty.json
-        │ change_data_capture.   │                        │                        │ with new
-        │ json                   │                        │ SQL Query filters:     │ timestamp
-        │                        │                        │ WHERE updated_at >     │
-        │ Contains:              │                        │ '2026-01-01'           │
-        │ {"cdc_value":          │                        │                        │
-        │  "2026-01-01"}         │                        │                        │
+┌────────────┐   ┌────────────┐   ┌────────────┐   ┌────────────┐   ┌────────────┐
+│  Lookup    │──>│Set Variable│──>│ Copy Data  │──>│   Script   │──>│ Copy Data  │
+│Last CDC    │   │(curr_time) │   │(Increment) │   │(Get Max)   │   │(Update CDC)│
+└────────────┘   └────────────┘   └────────────┘   └────────────┘   └────────────┘
+      │                │                 │                 │                 │
+      │ Read from:     │ Captures:       │ Write to:       │ Query:          │ Update:
+      │ bronze/        │ utcNow()        │ bronze/         │ SELECT MAX      │ bronze/
+      │ change_data    │                 │ dim_user/       │ (updated_at)    │ change_data
+      │ _capture/      │                 │ dim_user_       │ FROM table      │ _capture/
+      │ change_data    │                 │ 2026-02...      │                 │ change_data
+      │ _capture.json  │                 │                 │ Returns:        │ _capture.json
+      │                │                 │ SQL Query:      │ max_cdc_value   │
+      │ Contains:      │                 │ WHERE           │                 │ Uses:
+      │ {"cdc_value": │                 │ updated_at >    │                 │ max_cdc_value
+      │  "2026-01-01"}│                 │ '2026-01-01'    │                 │
 ```
 
 **How it works:**
 
 1. **Lookup** reads the last processed timestamp from a JSON file
-2. **Set Variable** captures the current timestamp (will be the new CDC value)
+2. **Set Variable** captures the current timestamp for file naming
 3. **Copy Data (Incremental)** queries SQL database for records newer than last timestamp
-4. **Copy Data (Update CDC)** writes the new timestamp to the tracking file automatically
+4. **Script** queries the maximum CDC value from the source table (actual max timestamp from data)
+5. **Copy Data (Update CDC)** writes the max CDC value to the tracking file automatically
 
 ---
 
@@ -960,29 +962,76 @@ Back in the Copy Data **Sink** tab:
 
 ---
 
-### Step 9.7: Add Copy Data Activity to Update CDC Value
+### Step 9.7: Add Script Activity to Get Max CDC Value
 
-This activity automatically updates the CDC tracking file with the new timestamp after data ingestion completes.
+This activity queries the actual maximum CDC timestamp from the source table, ensuring accurate tracking.
 
-#### A. Add the Activity
+#### A. Add the Activity - Script
+
+1. Drag **Script** activity onto canvas (from **General** section)
+2. **Name**: `get_max_cdc_value`
+3. Connect **incremental_ingestion_copy_data** → **get_max_cdc_value** (drag the green arrow)
+
+#### B. Configure Linked Service
+
+1. **Settings** tab → **Linked service** → Select `azure_db_4_data_engineering`
+
+#### C. Configure Script Query
+
+1. **Script** field → Click **Add dynamic content** and enter:
+
+   ```sql
+   SELECT MAX(@{pipeline().parameters.change_data_capture_column}) AS max_cdc_value 
+   FROM @{pipeline().parameters.schema}.@{pipeline().parameters.table}
+   ```
+
+   This query returns the maximum timestamp value from the CDC column in the table that was just processed.
+
+> **Why use MAX() instead of utcNow()?**
+>
+> - MAX() gets the actual latest timestamp from the data that was copied
+> - utcNow() could miss records if there's a delay between data updates and pipeline execution
+> - MAX() ensures we capture exactly what was processed, no more, no less
+
+---
+
+### Step 9.8: Add Copy Data Activity to Update CDC Value
+
+This activity automatically updates the CDC tracking file with the max CDC value after data ingestion completes.
+
+#### A. Add the Activity - Copy Data (Update CDC)
 
 1. Drag **Copy Data** activity onto canvas
 2. **Name**: `update_last_cdc`
-3. Connect **incremental_ingestion_copy_data** → **update_last_cdc** (drag the green arrow)
+3. Connect **get_max_cdc_value** → **update_last_cdc** (drag the green arrow)
 
-> **IMPORTANT**: Activity order: Lookup → Set Variable → Copy Data (Incremental) → Copy Data (Update CDC)
+> **IMPORTANT**: Activity order: Lookup → Set Variable → Copy Data (Incremental) → Script → Copy Data (Update CDC)
 
 #### B. Configure Source (Empty Dataset)
-
-Since we're creating new content (not copying from a source), we'll use a simple JSON dataset:
 
 1. **Source** tab → **Source dataset** → Select `azure_data_lake_storage_json_dynamic`
 2. **Dataset parameters**:
    - `container`: `bronze`
-   - `folder`: `cdc`
+   - `folder`: `change_data_capture`
    - `file`: `empty.json`
 
-> **Note**: The `empty.json` file should contain just `{}` and serves as a placeholder source.
+**Critical: Prepare the empty.json file first:**
+
+```bash
+# Create empty.json locally with proper structure
+echo '[{"placeholder":""}]' > change_data_capture/empty.json
+
+# Upload to Azure
+az storage blob upload \
+    --account-name "$AZURE_STORAGE_ACCOUNT_NAME" \
+    --container-name "bronze" \
+    --name "change_data_capture/empty.json" \
+    --file change_data_capture/empty.json \
+    --auth-mode key \
+    --overwrite
+```
+
+> **Why this structure?** Copy Data needs at least one row to process. The array `[{"placeholder":""}]` provides that row, and the Additional column will be added to it.
 
 #### C. Configure Sink (CDC Tracking File)
 
@@ -992,9 +1041,17 @@ Since we're creating new content (not copying from a source), we'll use a simple
    - `folder`: `change_data_capture`
    - `file`: `change_data_capture.json`
 
-#### D. Add Additional Column with New CDC Value
+**CRITICAL - Configure Sink Settings:**
 
-This is the key step - we add a column with the new timestamp value:
+1. In the **Sink** tab, click the **Settings** icon (gear/wrench next to the dataset dropdown)
+2. Configure these settings:
+   - **File pattern**: Select **Set of objects** (NOT "Array of objects")
+   - **Max rows per file**: Leave empty
+   - Click **OK**
+
+> **This is the key setting!** "Set of objects" creates `{"cdc_value": "..."}` instead of `[{"cdc_value": "..."}]`
+
+#### D. Add Additional Column with Max CDC Value
 
 1. In the **Source** tab, scroll down to **Additional columns**
 2. Click **+ New**
@@ -1002,15 +1059,127 @@ This is the key step - we add a column with the new timestamp value:
    - **Name**: `cdc_value`
    - **Value**: Click **Add dynamic content** and enter:
 
-   ```
-   @variables('current_time_value')
-   ```
+```script
+@activity('get_max_cdc_value').output.resultSets[0].rows[0].max_cdc_value
+```
 
-This writes the current timestamp (captured in Step 9.5) to the JSON file, updating it for the next pipeline run.
+**Important Notes:**
+
+- Do NOT add any other columns
+- Make sure the name is exactly `cdc_value` (lowercase, with underscore)
+- The expression must reference the Script activity output correctly
+
+#### E. Verify Configuration Checklist
+
+Before running, verify:
+
+- `bronze/change_data_capture/empty.json` exists with content: `[{"placeholder":""}]`
+- Sink **File pattern** is set to **Set of objects**
+- Additional column name is `cdc_value`
+- Additional column value uses the Script activity output
+- Activity dependency: Script → Copy Data (Update CDC)
+
+This configuration should create a clean JSON file: `{"cdc_value": "2026-02-01T12:45:30Z"}`
 
 ---
 
-### Step 9.8: Validate and Debug
+#### Alternative: Use Web Activity (If Copy Data still doesn't work)
+
+1. Drag **Web** activity onto canvas (from **General** section)
+2. **Name**: `update_last_cdc`
+3. Connect **get_max_cdc_value** → **update_last_cdc** (drag the green arrow)
+
+**Configure Web Activity:**
+
+1. **Settings** tab:
+   - **URL**: Click **Add dynamic content** and enter:
+
+```script
+@concat('https://', 'sa4dataengineering4rk', '.blob.core.windows.net/bronze/change_data_capture/change_data_capture.json')
+```
+
+- **Method**: `PUT`
+
+- **Headers**: Click **+ New** and add:
+  - Name: `x-ms-blob-type`
+  - Value: `BlockBlob`
+
+- **Body**: Click **Add dynamic content** and enter:
+
+   ```json
+   @concat('{"cdc_value": "', activity('get_max_cdc_value').output.resultSets[0].rows[0].max_cdc_value, '"}')
+   ```
+
+- **Authentication**: Select **MSI** (Managed Service Identity)
+- **Resource**: `https://storage.azure.com/`
+
+1. **Grant Data Factory permissions**:
+
+   ```bash
+   # Get Data Factory managed identity principal ID
+   ADF_PRINCIPAL_ID=$(az datafactory show \
+       --name "$AZURE_DATA_FACTORY_NAME" \
+       --resource-group "$AZURE_RESOURCE_GROUP" \
+       --query "identity.principalId" -o tsv)
+   
+   # Assign Storage Blob Data Contributor role
+   az role assignment create \
+       --assignee "$ADF_PRINCIPAL_ID" \
+       --role "Storage Blob Data Contributor" \
+       --scope "/subscriptions/$(az account show --query id -o tsv)/resourceGroups/$AZURE_RESOURCE_GROUP/providers/Microsoft.Storage/storageAccounts/$AZURE_STORAGE_ACCOUNT_NAME"
+   ```
+
+#### Original Copy Data Approach (If you prefer to fix it)
+
+If you want to keep using Copy Data, here's how to fix the issue:
+
+#### A. Add the Activity - Copy Data (Update Last CDC)
+
+1. Drag **Copy Data** activity onto canvas
+2. **Name**: `update_last_cdc`
+3. Connect **incremental_ingestion_copy_data** → **update_last_cdc** (drag the green arrow)
+
+> **IMPORTANT**: Activity order: Lookup → Set Variable → Copy Data (Incremental) → Script → Copy Data (Update CDC)
+
+#### B. Configure Source (Empty Dataset) - JSON
+
+Since we're creating new content (not copying from a source), we'll use a simple JSON dataset:
+
+1. **Source** tab → **Source dataset** → Select `azure_data_lake_storage_json_dynamic`
+2. **Dataset parameters**:
+   - `container`: `bronze`
+   - `folder`: `change_data_capture`
+   - `file`: `empty.json`
+
+> **Note**: The `empty.json` file should contain just `{}` and serves as a placeholder source.
+
+#### C. Configure Sink (CDC Tracking File) - JSON
+
+1. **Sink** tab → **Sink dataset** → Select `azure_data_lake_storage_json_dynamic`
+2. **Dataset parameters**:
+   - `container`: `bronze`
+   - `folder`: `change_data_capture`
+   - `file`: `change_data_capture.json`
+
+#### D. Add Additional Column with Max CDC Value - JSON
+
+This is the key step - we add a column with the max CDC value from the Script activity:
+
+1. In the **Source** tab, scroll down to **Additional columns**
+2. Click **+ New**
+3. Configure:
+   - **Name**: `cdc_value`
+   - **Value**: Click **Add dynamic content** and enter:
+
+```script
+@activity('get_max_cdc_value').output.resultSets[0].rows[0].max_cdc_value
+```
+
+This writes the actual maximum timestamp from the processed data to the JSON file, ensuring accurate CDC tracking for the next pipeline run.
+
+---
+
+### Step 9.9: Validate and Debug
 
 #### Validate Pipeline
 
@@ -1036,12 +1205,13 @@ This writes the current timestamp (captured in Step 9.5) to the JSON file, updat
 ✓ look_up_last_cdc_value   → Reads: {"cdc_value": "1900-01-01"}
 ✓ set_current_time_value    → Sets: "2026-02-01T14:30:00Z"
 ✓ incremental_ingestion_... → Copies records where updated_at > '1900-01-01'
-✓ update_last_cdc           → Writes: {"cdc_value": "2026-02-01T14:30:00Z"} to tracking file
+✓ get_max_cdc_value         → Queries: MAX(updated_at) = "2026-02-01T12:45:30Z"
+✓ update_last_cdc           → Writes: {"cdc_value": "2026-02-01T12:45:30Z"} to tracking file
 ```
 
 ---
 
-### Step 9.9: Troubleshooting Common Errors
+### Step 9.10: Troubleshooting Common Errors
 
 #### Error: "BadRequest" with no message
 
@@ -1067,7 +1237,7 @@ This writes the current timestamp (captured in Step 9.5) to the JSON file, updat
 **Fix**: Check the green arrows (dependencies). Should be:
 
 ```pipeline_flow
-Lookup → Set Variable → Copy Data (Incremental) → Copy Data (Update CDC)
+Lookup → Set Variable → Copy Data (Incremental) → Script → Copy Data (Update CDC)
 ```
 
 #### Error: Column does not exist or Invalid object name
@@ -1080,21 +1250,75 @@ Lookup → Set Variable → Copy Data (Incremental) → Copy Data (Update CDC)
 2. Update the `table` parameter to match exactly (case-sensitive)
 3. Update the `change_data_capture_column` parameter to match your actual timestamp column (e.g., `updated_at`, `ModifiedDate`, `LastUpdated`)
 
+#### Error: CDC tracking file is empty or has wrong format after update
+
+#### Fix Option 1: Verify the empty.json source file structure
+
+The `bronze/change_data_capture/empty.json` file should contain an empty array:
+
+```json
+[
+  {}
+]
+```
+
+This ensures Copy Data has a row to copy and can add the additional column properly.
+
+#### Fix Option 2: Check Sink Settings
+
+In the `update_last_cdc` Copy Data activity's **Sink** tab:
+
+1. Click **Settings** (next to the dataset dropdown)
+2. Under **File pattern**, select: **Set of objects** (not Array of objects)
+3. This creates `{"cdc_value": "..."}` instead of `[{"cdc_value": "..."}]`
+
+#### Fix Option 3: Verify the Additional column configuration
+
+Make sure in the **Source** tab:
+
+- Additional columns section has exactly one column
+- Name: `cdc_value`  
+- Value: `@activity('get_max_cdc_value').output.resultSets[0].rows[0].max_cdc_value`
+
+**Debugging steps:**
+
+1. After pipeline runs, check the actual content of `change_data_capture.json`:
+
+```bash
+az storage blob download \
+    --account-name "$AZURE_STORAGE_ACCOUNT_NAME" \
+    --container-name "bronze" \
+    --name "change_data_capture/change_data_capture.json" \
+    --file downloaded_cdc.json \
+    --auth-mode key
+
+cat downloaded_cdc.json
+```
+
+1. Check the Script activity output to verify it's returning the value:
+   - In the pipeline run details, click on `get_max_cdc_value`
+   - Look at the **Output** tab
+   - Verify you see: `"resultSets": [{"rows": [{"max_cdc_value": "2026-02-01..."}]}]`
+
+2. If the file format is wrong (array instead of object), you can manually fix it or adjust the Copy Data sink settings as shown in Fix Option 2.
+
 ---
 
-### Step 9.9: Update CDC Value After Pipeline Run
+### Step 9.11: Update CDC Value After Pipeline Run
 
 ~~After a successful pipeline run, you need to update the CDC tracking file with the new timestamp.~~
 
-**Automated Update (Implemented in Step 9.7):**
+**Automated Update (Implemented in Steps 9.7-9.8):**
 
-The `update_last_cdc` Copy Data activity automatically updates the CDC tracking file after each successful pipeline run:
+The pipeline automatically updates the CDC tracking file after each successful run:
 
-- **Source**: `bronze/cdc/empty.json` (placeholder)
-- **Sink**: `bronze/change_data_capture/change_data_capture.json`
-- **Additional column**: `cdc_value` with value from `@variables('current_time_value')`
+1. **Script Activity** (`get_max_cdc_value`): Queries the maximum CDC value from source table
+2. **Copy Data Activity** (`update_last_cdc`): Writes the max value to tracking file
+   - **Source**: `bronze/change_data_capture/empty.json` (placeholder)
+   - **Sink**: `bronze/change_data_capture/change_data_capture.json`
+   - **Additional column**: `cdc_value` with value from Script output: `@activity('get_max_cdc_value').output.resultSets[0].rows[0].max_cdc_value`
 
-The pipeline now fully automates the CDC process - no manual updates required!
+The pipeline now fully automates the CDC process with accurate max values - no manual updates required!
 
 **Manual update (if needed):**
 
@@ -1113,7 +1337,7 @@ If you need to manually adjust the CDC value:
 
 ---
 
-### Step 9.10: Pipeline Summary
+### Step 9.12: Pipeline Summary
 
 ```mermaid
 graph LR
@@ -1121,29 +1345,19 @@ graph LR
     B -->|Stores utcNow| C[Copy Data Incremental]
     C -->|Incremental Query| D[Azure SQL DB]
     C -->|Writes Parquet| E[Data Lake Bronze]
-    C -->|On Success| F[Update CDC Value]
-    F -->|Writes New Timestamp| G[CDC Tracking File]
+    C -->|On Success| F[Script: Get Max CDC]
+    F -->|Query MAX value| D
+    F -->|Returns max_cdc_value| G[Update CDC Value]
+    G -->|Writes Max Timestamp| H[CDC Tracking File]
     
     style A fill:#e1f5ff
     style B fill:#fff4e1
     style C fill:#e8f5e9
     style D fill:#fce4ec
     style E fill:#f3e5f5
-    style F fill:#e8f5e9
-    style G fill:#e1f5ff
+    style F fill:#ffe5f1
+    style G fill:#e8f5e9
+    style H fill:#e1f5ff
 ```
 
-**What you've built:**
-
-- ✅ Reusable pipeline with parameters
-- ✅ Incremental data loading (not full refresh)
-- ✅ Dynamic file naming with timestamps
-- ✅ Automatic CDC state tracking - no manual updates needed!
-- ✅ Efficient: Only processes new/changed records
-
-**Next steps:**
-
-- Add error handling (If Condition, Try-Catch)
-- Schedule pipeline with triggers
-- Add logging and monitoring
-- Extend to multiple tables (parameterize table list)
+---
