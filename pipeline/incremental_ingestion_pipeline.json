@@ -133,14 +133,7 @@
 			{
 				"name": "update_last_cdc",
 				"type": "Copy",
-				"dependsOn": [
-					{
-						"activity": "incremental_ingestion_copy_data",
-						"dependencyConditions": [
-							"Succeeded"
-						]
-					}
-				],
+				"dependsOn": [],
 				"policy": {
 					"timeout": "0.12:00:00",
 					"retry": 0,
@@ -203,6 +196,42 @@
 						}
 					}
 				]
+			},
+			{
+				"name": "script_get_max_cdc",
+				"type": "Script",
+				"dependsOn": [
+					{
+						"activity": "incremental_ingestion_copy_data",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"linkedServiceName": {
+					"referenceName": "azure_db_4_data_engineering",
+					"type": "LinkedServiceReference"
+				},
+				"typeProperties": {
+					"scripts": [
+						{
+							"type": "Query",
+							"text": {
+								"value": "SELECT MAX(@{pipeline().parameters.change_data_capture_column}) AS MAX_CDC FROM @{pipeline().parameters.schema}.@{pipeline().parameters.table}",
+								"type": "Expression"
+							}
+						}
+					],
+					"scriptBlockExecutionTimeout": "02:00:00"
+				}
 			}
 		],
 		"parameters": {
