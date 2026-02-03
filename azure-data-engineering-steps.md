@@ -714,25 +714,28 @@ This pipeline implements **Change Data Capture (CDC)** to incrementally load onl
 **Pipeline Flow:**
 
 ```pipeline_flow
-┌─────────────────┐      ┌──────────────────┐      ┌─────────────────┐
-│  Lookup Last    │ ───> │  Set Variable    │ ───> │   Copy Data     │
-│  CDC Timestamp  │      │  (current_time)  │      │ (Incremental)   │
-└─────────────────┘      └──────────────────┘      └─────────────────┘
-        │                                                    │
-        │ Read from:                                        │ Write to:
-        │ bronze/change_data_capture/                       │ bronze/dim_user/
-        │ change_data_capture.json                          │ dim_user_2026-02-01.parquet
-        │                                                    │
-        │ Contains: {"cdc_value": "2026-01-01"}            │ SQL Query filters:
-        │                                                    │ WHERE updated_at > '2026-01-01'
+┌─────────────────┐      ┌──────────────────┐      ┌─────────────────┐      ┌─────────────────┐
+│  Lookup Last    │ ───> │  Set Variable    │ ───> │   Copy Data     │ ───> │   Copy Data     │
+│  CDC Timestamp  │      │  (current_time)  │      │ (Incremental)   │      │  (Update CDC)   │
+└─────────────────┘      └──────────────────┘      └─────────────────┘      └─────────────────┘
+        │                         │                         │                         │
+        │ Read from:             │ Captures:              │ Write to:              │ Update:
+        │ bronze/                │ utcNow()               │ bronze/dim_user/       │ bronze/cdc/
+        │ change_data_capture/   │                        │ dim_user_2026-02...    │ empty.json
+        │ change_data_capture.   │                        │                        │ with new
+        │ json                   │                        │ SQL Query filters:     │ timestamp
+        │                        │                        │ WHERE updated_at >     │
+        │ Contains:              │                        │ '2026-01-01'           │
+        │ {"cdc_value":          │                        │                        │
+        │  "2026-01-01"}         │                        │                        │
 ```
 
 **How it works:**
 
 1. **Lookup** reads the last processed timestamp from a JSON file
-2. **Set Variable** captures the current timestamp for later updates
-3. **Copy Data** queries SQL database for records newer than last timestamp
-4. After successful run, update the JSON file with the new timestamp (manual or via another activity)
+2. **Set Variable** captures the current timestamp (will be the new CDC value)
+3. **Copy Data (Incremental)** queries SQL database for records newer than last timestamp
+4. **Copy Data (Update CDC)** writes the new timestamp to the tracking file automatically
 
 ---
 
@@ -764,6 +767,7 @@ az storage blob upload \
 > - `"1900-01-01"` ensures the first run captures all historical data
 > - The `change_data_capture/` directory is created automatically when uploading the file
 > - Azure Data Lake Gen2 (hierarchical namespace) creates directories implicitly
+> - Also create `change_data_capture/empty.json` with `{}` - this will be updated with new CDC values by the pipeline
 
 ---
 
@@ -956,7 +960,57 @@ Back in the Copy Data **Sink** tab:
 
 ---
 
-### Step 9.7: Validate and Debug
+### Step 9.7: Add Copy Data Activity to Update CDC Value
+
+This activity automatically updates the CDC tracking file with the new timestamp after data ingestion completes.
+
+#### A. Add the Activity
+
+1. Drag **Copy Data** activity onto canvas
+2. **Name**: `update_last_cdc`
+3. Connect **incremental_ingestion_copy_data** → **update_last_cdc** (drag the green arrow)
+
+> **IMPORTANT**: Activity order: Lookup → Set Variable → Copy Data (Incremental) → Copy Data (Update CDC)
+
+#### B. Configure Source (Empty Dataset)
+
+Since we're creating new content (not copying from a source), we'll use a simple JSON dataset:
+
+1. **Source** tab → **Source dataset** → Select `azure_data_lake_storage_json_dynamic`
+2. **Dataset parameters**:
+   - `container`: `bronze`
+   - `folder`: `cdc`
+   - `file`: `empty.json`
+
+> **Note**: The `empty.json` file should contain just `{}` and serves as a placeholder source.
+
+#### C. Configure Sink (CDC Tracking File)
+
+1. **Sink** tab → **Sink dataset** → Select `azure_data_lake_storage_json_dynamic`
+2. **Dataset parameters**:
+   - `container`: `bronze`
+   - `folder`: `change_data_capture`
+   - `file`: `change_data_capture.json`
+
+#### D. Add Additional Column with New CDC Value
+
+This is the key step - we add a column with the new timestamp value:
+
+1. In the **Source** tab, scroll down to **Additional columns**
+2. Click **+ New**
+3. Configure:
+   - **Name**: `cdc_value`
+   - **Value**: Click **Add dynamic content** and enter:
+
+   ```
+   @variables('current_time_value')
+   ```
+
+This writes the current timestamp (captured in Step 9.5) to the JSON file, updating it for the next pipeline run.
+
+---
+
+### Step 9.8: Validate and Debug
 
 #### Validate Pipeline
 
@@ -982,11 +1036,12 @@ Back in the Copy Data **Sink** tab:
 ✓ look_up_last_cdc_value   → Reads: {"cdc_value": "1900-01-01"}
 ✓ set_current_time_value    → Sets: "2026-02-01T14:30:00Z"
 ✓ incremental_ingestion_... → Copies records where updated_at > '1900-01-01'
+✓ update_last_cdc           → Writes: {"cdc_value": "2026-02-01T14:30:00Z"} to tracking file
 ```
 
 ---
 
-### Step 9.8: Troubleshooting Common Errors
+### Step 9.9: Troubleshooting Common Errors
 
 #### Error: "BadRequest" with no message
 
@@ -994,7 +1049,7 @@ Back in the Copy Data **Sink** tab:
 
 1. **Activity dependency order is wrong**
    - Copy Data → Lookup (wrong!)
-   - Lookup → Set Variable → Copy Data (correct!)
+   - Lookup → Set Variable → Copy Data (Incremental) → Copy Data (Update CDC) (correct!)
 
 2. **JSON field name mismatch**
    - JSON file has: `"change_data_capture_column"`
@@ -1012,7 +1067,7 @@ Back in the Copy Data **Sink** tab:
 **Fix**: Check the green arrows (dependencies). Should be:
 
 ```pipeline_flow
-Lookup → Set Variable → Copy Data
+Lookup → Set Variable → Copy Data (Incremental) → Copy Data (Update CDC)
 ```
 
 #### Error: Column does not exist or Invalid object name
@@ -1029,14 +1084,26 @@ Lookup → Set Variable → Copy Data
 
 ### Step 9.9: Update CDC Value After Pipeline Run
 
-After a successful pipeline run, you need to update the CDC tracking file with the new timestamp.
+~~After a successful pipeline run, you need to update the CDC tracking file with the new timestamp.~~
 
-**Manual update via Azure Portal:**
+**Automated Update (Implemented in Step 9.7):**
+
+The `update_last_cdc` Copy Data activity automatically updates the CDC tracking file after each successful pipeline run:
+
+- **Source**: `bronze/cdc/empty.json` (placeholder)
+- **Sink**: `bronze/change_data_capture/change_data_capture.json`
+- **Additional column**: `cdc_value` with value from `@variables('current_time_value')`
+
+The pipeline now fully automates the CDC process - no manual updates required!
+
+**Manual update (if needed):**
+
+If you need to manually adjust the CDC value:
 
 1. Go to **Storage Account** → **Containers** → **bronze** → **change_data_capture**
 2. Click on `change_data_capture.json`
 3. Click **Edit**
-4. Update to:
+4. Update to desired timestamp:
 
 ```json
 {
@@ -1044,43 +1111,39 @@ After a successful pipeline run, you need to update the CDC tracking file with t
 }
 ```
 
-**Automated update (Advanced):**
-
-Add a **Copy Data** activity at the end to write the new timestamp:
-
-- Source: Empty dataset
-- Sink: Same JSON file
-- Use **Additional columns** to write: `@variables('current_time_value')`
-
 ---
 
-### Pipeline Summary
+### Step 9.10: Pipeline Summary
 
 ```mermaid
 graph LR
     A[Lookup Last CDC] -->|Reads JSON| B[Set Variable]
-    B -->|Stores utcNow| C[Copy Data]
+    B -->|Stores utcNow| C[Copy Data Incremental]
     C -->|Incremental Query| D[Azure SQL DB]
     C -->|Writes Parquet| E[Data Lake Bronze]
+    C -->|On Success| F[Update CDC Value]
+    F -->|Writes New Timestamp| G[CDC Tracking File]
     
     style A fill:#e1f5ff
     style B fill:#fff4e1
     style C fill:#e8f5e9
     style D fill:#fce4ec
     style E fill:#f3e5f5
+    style F fill:#e8f5e9
+    style G fill:#e1f5ff
 ```
 
 **What you've built:**
 
-- Reusable pipeline with parameters
-- Incremental data loading (not full refresh)
-- Dynamic file naming with timestamps
-- Tracked CDC state in JSON file
-- Efficient: Only processes new/changed records
+- ✅ Reusable pipeline with parameters
+- ✅ Incremental data loading (not full refresh)
+- ✅ Dynamic file naming with timestamps
+- ✅ Automatic CDC state tracking - no manual updates needed!
+- ✅ Efficient: Only processes new/changed records
 
 **Next steps:**
 
 - Add error handling (If Condition, Try-Catch)
-- Automate CDC value updates
 - Schedule pipeline with triggers
 - Add logging and monitoring
+- Extend to multiple tables (parameterize table list)
