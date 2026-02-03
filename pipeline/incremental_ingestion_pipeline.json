@@ -110,7 +110,7 @@
 						"parameters": {
 							"container": "bronze",
 							"folder": "change_data_capture",
-							"file": "change_data_capture.json"
+							"file": "@concat(pipeline().parameters.table, '_cdc.json')"
 						}
 					},
 					"firstRowOnly": true
@@ -258,7 +258,7 @@
 									"parameters": {
 										"container": "bronze",
 										"folder": "change_data_capture",
-										"file": "change_data_capture.json"
+										"file": "@concat(pipeline().parameters.table, '_cdc.json')"
 									}
 								}
 							]
