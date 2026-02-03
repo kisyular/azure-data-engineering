@@ -130,13 +130,16 @@
 		],
 		"parameters": {
 			"schema": {
-				"type": "string"
+				"type": "string",
+				"defaultValue": "dbo"
 			},
 			"table": {
-				"type": "string"
+				"type": "string",
+				"defaultValue": "Users"
 			},
 			"change_data_capture_column": {
-				"type": "string"
+				"type": "string",
+				"defaultValue": "updated_at"
 			}
 		},
 		"variables": {
