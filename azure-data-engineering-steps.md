@@ -2797,7 +2797,7 @@ Now configure Data Factory to call the Logic App when pipelines fail or succeed.
     "pipelineName": "@{pipeline().Pipeline}",
     "pipelineRunId": "@{pipeline().RunId}",
     "status": "Failed",
-    "errorMessage": "@{activity('loop_through_tables').output.errors[0].message}",
+    "errorMessage": "Pipeline execution failed. Check Azure Portal for details.",
     "timestamp": "@{utcNow()}",
     "dataFactory": "@{pipeline().DataFactory}"
 }
@@ -2807,9 +2807,11 @@ Now configure Data Factory to call the Logic App when pipelines fail or succeed.
 
 - `@{pipeline().Pipeline}` - Gets current pipeline name
 - `@{pipeline().RunId}` - Gets unique run identifier
-- `@{activity('loop_through_tables').output.errors[0].message}` - Gets error message from ForEach
+- `errorMessage` - Static message (detailed errors available in Azure Portal via RunId)
 - `@{utcNow()}` - Gets current UTC timestamp
 - `@{pipeline().DataFactory}` - Gets Data Factory name
+
+> **Note:** Detailed error messages are not directly accessible from the failure path. Users can view full error details in Azure Data Factory Monitor using the `pipelineRunId`.
 
 #### B. Add Web Activity for Success Alerts
 
