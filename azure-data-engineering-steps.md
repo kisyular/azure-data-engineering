@@ -2026,7 +2026,13 @@ graph TB
     "table": "fact_stream",
     "change_data_capture_column": "stream_timestamp",
     "backfill_date": ""
-  }
+  },
+    {
+        "schema": "dbo",
+        "table": "dim_date",
+        "change_data_capture_column": "date",
+        "backfill_date": ""
+    }
 ]
 ```
 
