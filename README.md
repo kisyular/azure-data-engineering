@@ -415,26 +415,26 @@ az storage blob upload \
 │                    STORAGE ACCOUNT ENDPOINTS                                   │
 ├────────────────────────────────────────────────────────────────────────────────┤
 │                                                                                │
-│  Storage Account: sa4dataengineering4rk                                            │
+│  Storage Account: sa4dataengineering4rk                                        │
 │                                                                                │
 │  Blob Service (Containers):                                                    │
-│  └── https://sa4dataengineering4rk.blob.core.windows.net                           │
+│  └── https://sa4dataengineering4rk.blob.core.windows.net                       │
 │                                                                                │
 │  Data Lake Storage Gen2 (ADLS):                                                │
-│  └── https://sa4dataengineering4rk.dfs.core.windows.net                            │
-│  └── abfss://container@sa4dataengineering4rk.dfs.core.windows.net/path             │
+│  └── https://sa4dataengineering4rk.dfs.core.windows.net                        │
+│  └── abfss://container@sa4dataengineering4rk.dfs.core.windows.net/path         │
 │                                                                                │
 │  File Service:                                                                 │
-│  └── https://sa4dataengineering4rk.file.core.windows.net                           │
+│  └── https://sa4dataengineering4rk.file.core.windows.net                       │
 │                                                                                │
 │  Queue Service:                                                                │
-│  └── https://sa4dataengineering4rk.queue.core.windows.net                          │
+│  └── https://sa4dataengineering4rk.queue.core.windows.net                      │
 │                                                                                │
 │  Table Service:                                                                │
-│  └── https://sa4dataengineering4rk.table.core.windows.net                          │
+│  └── https://sa4dataengineering4rk.table.core.windows.net                      │
 │                                                                                │
 │  Static Website (if enabled):                                                  │
-│  └── https://sa4dataengineering4rk.z13.web.core.windows.net                        │
+│  └── https://sa4dataengineering4rk.z13.web.core.windows.net                    │
 │                                                                                │
 └────────────────────────────────────────────────────────────────────────────────┘
 ```
@@ -476,7 +476,7 @@ az storage blob upload \
 │   └──────────────┘                                                              │
 │                                                                                 │
 │   ┌──────────────┐                                                              │
-│   │ INTEGRATION  │  ← Compute infrastructure (where processing happens)        │
+│   │ INTEGRATION  │  ← Compute infrastructure (where processing happens)         │
 │   │   RUNTIME    │                                                              │
 │   └──────────────┘                                                              │
 └─────────────────────────────────────────────────────────────────────────────────┘
@@ -710,10 +710,10 @@ When you run the verification code `az datafactory show` it should output
 │                              │                                                 │
 │                              ▼                                                 │
 │   ┌──────────────────────────────────────────────────────┐                     │
-│   │              Copy Data Activity                       │                    │
-│   │   Source: @{pipeline().parameters.schema_name}.       │                    │
-│   │           @{pipeline().parameters.table_name}         │                    │
-│   │   Sink:   @{pipeline().parameters.output_folder}/     │                    │
+│   │              Copy Data Activity                      │                     │
+│   │   Source: @{pipeline().parameters.schema_name}.      │                     │
+│   │           @{pipeline().parameters.table_name}        │                     │
+│   │   Sink:   @{pipeline().parameters.output_folder}/    │                     │
 │   └──────────────────────────────────────────────────────┘                     │
 └────────────────────────────────────────────────────────────────────────────────┘
 ```
@@ -1570,7 +1570,7 @@ VALUES
 │                                                                                │
 │  ┌────────────┐        ┌─────────────┐        ┌──────────────┐                 │
 │  │ New File   │───────▶│ Logic App   │───────▶│ Trigger      │                 │
-│  │ Arrives    │        │             │        │ ADF Pipeline │                │
+│  │ Arrives    │        │             │        │ ADF Pipeline │                 │
 │  └────────────┘        └─────────────┘        └──────────────┘                 │
 │                                                                                │
 └────────────────────────────────────────────────────────────────────────────────┘
