@@ -2026,7 +2026,13 @@ graph TB
     "table": "fact_stream",
     "change_data_capture_column": "stream_timestamp",
     "backfill_date": ""
-  }
+  },
+    {
+        "schema": "dbo",
+        "table": "dim_date",
+        "change_data_capture_column": "date",
+        "backfill_date": ""
+    }
 ]
 ```
 
@@ -2469,7 +2475,561 @@ And modify the Copy Data SQL query for dim_date:
 SELECT * FROM @{pipeline().parameters.schema}.@{pipeline().parameters.table}
 ```
 
-## Step 12: Troubleshooting Pipeline Errors
+---
+
+## Step 12: Pipeline Monitoring and Alerting with Logic Apps
+
+**Why Pipeline Monitoring is Critical:**
+
+In production environments, you need to know immediately when pipelines fail or succeed. Manual monitoring is not scalable, especially when pipelines run on schedules (e.g., hourly, daily). Azure Logic Apps provide a serverless way to:
+
+1. Receive HTTP notifications from Data Factory
+2. Process the notification data
+3. Send formatted email alerts
+4. Integrate with other systems (Slack, Teams, etc.)
+
+**What We'll Build:**
+
+```mermaid
+graph TB
+    A[Data Factory Pipeline Runs] --> B{Pipeline Status}
+    B -->|Success| C[Web Activity: Success Alert]
+    B -->|Failure| D[Web Activity: Failure Alert]
+    C --> E[Logic App HTTP Trigger]
+    D --> E
+    E --> F[Parse Request Body]
+    F --> G[Send Email Notification]
+    G --> H[Email Delivered]
+    
+    style A fill:#006ba8
+    style B fill:#b45902
+    style C fill:#195a1e
+    style D fill:#8b0000
+    style E fill:#4b0082
+    style F fill:#8b7500
+    style G fill:#a0245c
+    style H fill:#195a1e
+```
+
+---
+
+### Step 12.1: Create Azure Logic App Resource
+
+First, create a Logic App resource to host your monitoring workflow.
+
+```bash
+# Create Logic App for Data Factory alerts
+az logic workflow create \
+    --resource-group "$AZURE_RESOURCE_GROUP" \
+    --name "logic_app_4_data_factory_alerts" \
+    --location "North Central US"
+```
+
+**Verify creation:**
+
+```bash
+# List Logic Apps in resource group
+az logic workflow list \
+    --resource-group "$AZURE_RESOURCE_GROUP" \
+    --output table
+```
+
+**Expected output:**
+
+```output
+Name                                  Location         State    ResourceGroup
+------------------------------------  ---------------  -------  --------------------------
+logic_app_4_data_factory_alerts       North Central US Enabled  rg_data_engineering_project
+```
+
+---
+
+### Step 12.2: Configure Logic App HTTP Trigger
+
+**Access Logic App Designer:**
+
+1. **Navigate to Logic App**:
+   - Azure Portal → Resource Groups → Your Resource Group
+   - Click on `logic_app_4_data_factory_alerts`
+
+2. **Open Designer**:
+   - In the left sidebar, under **Development Tools**
+   - Click **Logic app designer**
+
+3. **Select Trigger Template**:
+   - Browse templates
+   - Select **When a HTTP request is received**
+   - Click **Use this template**
+
+#### A. Configure HTTP Request Schema
+
+The schema defines what data Data Factory will send:
+
+1. In the **Request Body JSON Schema** box, click **Use sample payload to generate schema**
+2. Paste this sample JSON:
+
+```json
+{
+    "pipelineName": "loop_incremental_ingestion_pipeline",
+    "pipelineRunId": "abc123-def456-ghi789",
+    "status": "Failed",
+    "errorMessage": "Table dim_user failed to load",
+    "timestamp": "2026-02-03T10:30:00Z",
+    "dataFactory": "adf-4-data-engineering-rk"
+}
+```
+
+1. Click **Done**
+
+The designer will automatically generate this schema:
+
+```json
+{
+    "type": "object",
+    "properties": {
+        "pipelineName": {
+            "type": "string"
+        },
+        "pipelineRunId": {
+            "type": "string"
+        },
+        "status": {
+            "type": "string"
+        },
+        "errorMessage": {
+            "type": "string"
+        },
+        "timestamp": {
+            "type": "string"
+        },
+        "dataFactory": {
+            "type": "string"
+        }
+    }
+}
+```
+
+1. **Save** the Logic App (top toolbar)
+2. **Copy the HTTP POST URL** that appears - you'll need this for Data Factory
+
+> **Important:** This URL is the webhook that Data Factory will call. Keep it secure.
+
+---
+
+### Step 12.3: Add Conditional Logic for Status
+
+Add a condition to handle Success vs Failure differently:
+
+1. Click **+ New step**
+2. Search for **Condition**
+3. Select **Condition** control
+
+**Configure the condition:**
+
+1. Click in the first box and select **status** from dynamic content
+2. Select operator: **is equal to**
+3. In the value box, type: `Failed`
+
+This creates two branches: **If true** (failure) and **If false** (success).
+
+---
+
+### Step 12.4: Configure Email Notification for Failures
+
+**In the "If true" branch (when status = Failed):**
+
+1. Click **Add an action**
+2. Search for **Send an email (V2)**
+3. Select **Office 365 Outlook** connector
+
+**Sign in to your Outlook account** when prompted.
+
+**Configure the email:**
+
+1. **To**: Enter recipient email (e.g., `your-email@domain.com`)
+2. **Subject**: Click **Add dynamic content** and compose:
+
+   ```subject
+   Pipeline Failed: @{triggerBody()?['pipelineName']}
+   ```
+
+3. **Body**: Click **Add dynamic content** and compose:
+
+```email_body
+Hi Team,
+
+A Data Factory pipeline has failed and requires attention.
+
+Pipeline Details:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Pipeline Name:    @{triggerBody()?['pipelineName']}
+Run ID:           @{triggerBody()?['pipelineRunId']}
+Status:           @{triggerBody()?['status']}
+Timestamp:        @{triggerBody()?['timestamp']}
+Data Factory:     @{triggerBody()?['dataFactory']}
+
+Error Details:
+@{triggerBody()?['errorMessage']}
+
+Quick Links:
+• Monitor Pipeline: https://adf.azure.com/monitoring/pipelineruns/@{triggerBody()?['pipelineRunId']}
+• Azure Portal: https://portal.azure.com
+
+Please investigate and resolve the issue.
+
+Best regards,
+Azure Data Factory Monitoring
+```
+
+**Customize for your needs:**
+
+- Add CC/BCC recipients
+- Modify subject line format
+- Include additional metadata
+- Add HTML formatting if desired
+
+---
+
+### Step 12.5: Configure Email Notification for Success (Optional)
+
+**In the "If false" branch (when status = Success):**
+
+1. Click **Add an action**
+2. Search for **Send an email (V2)**
+3. Select **Office 365 Outlook** connector
+
+**Configure the email:**
+
+1. **To**: Enter recipient email
+2. **Subject**:
+
+   ```subject
+   Pipeline Succeeded: @{triggerBody()?['pipelineName']}
+   ```
+
+3. **Body**:
+
+```email_body
+Hi Team,
+
+A Data Factory pipeline has completed successfully.
+
+Pipeline Details:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Pipeline Name:    @{triggerBody()?['pipelineName']}
+Run ID:           @{triggerBody()?['pipelineRunId']}
+Status:           @{triggerBody()?['status']}
+Timestamp:        @{triggerBody()?['timestamp']}
+Data Factory:     @{triggerBody()?['dataFactory']}
+
+All tables processed successfully.
+
+View Results:
+https://adf.azure.com/monitoring/pipelineruns/@{triggerBody()?['pipelineRunId']}
+
+Best regards,
+Azure Data Factory Monitoring
+```
+
+**Save the Logic App** (top toolbar).
+
+---
+
+### Step 12.6: Complete Logic App Flow Diagram
+
+Your final Logic App workflow:
+
+```mermaid
+graph TB
+    A[HTTP Request Received] --> B{Parse JSON Body}
+    B --> C{Condition:<br/>status == 'Failed'?}
+    
+    C -->|TRUE: Failed| D[Send Email:<br/>Failure Notification]
+    C -->|FALSE: Success| E[Send Email:<br/>Success Notification]
+    
+    D --> F[Email Delivered]
+    E --> F
+    
+    style A fill:#4b0082
+    style B fill:#8b7500
+    style C fill:#b45902
+    style D fill:#8b0000
+    style E fill:#195a1e
+    style F fill:#006ba8
+```
+
+---
+
+### Step 12.7: Connect Data Factory to Logic App
+
+Now configure Data Factory to call the Logic App when pipelines fail or succeed.
+
+#### A. Add Web Activity for Failure Alerts
+
+1. **Open your pipeline** in Data Factory Studio:
+   - Go to `loop_incremental_ingestion_pipeline`
+
+2. **Add Web Activity**:
+   - From **Activities** toolbar → **General**
+   - Drag **Web** activity onto canvas
+   - **Name**: `pipeline_run_failed_alert`
+
+3. **Position the activity**:
+   - This should execute when the ForEach activity **fails**
+   - Click on the **ForEach** activity
+   - Drag the **red failure arrow** (on the right side) to the Web activity
+
+**Configure Web Activity:**
+
+1. **Click on pipeline_run_failed_alert** activity
+2. **Settings** tab:
+
+   - **URL**: Paste the HTTP POST URL from your Logic App
+   - **Method**: `POST`
+   - **Headers**: Click **+ New**
+     - Name: `Content-Type`
+     - Value: `application/json`
+
+   - **Body**: Click **Add dynamic content** and enter:
+
+```json
+{
+    "pipelineName": "@{pipeline().Pipeline}",
+    "pipelineRunId": "@{pipeline().RunId}",
+    "status": "Failed",
+    "errorMessage": "Pipeline execution failed. Check Azure Portal for details.",
+    "timestamp": "@{utcNow()}",
+    "dataFactory": "@{pipeline().DataFactory}"
+}
+```
+
+**Important Notes:**
+
+- `@{pipeline().Pipeline}` - Gets current pipeline name
+- `@{pipeline().RunId}` - Gets unique run identifier
+- `errorMessage` - Static message (detailed errors available in Azure Portal via RunId)
+- `@{utcNow()}` - Gets current UTC timestamp
+- `@{pipeline().DataFactory}` - Gets Data Factory name
+
+> **Note:** Detailed error messages are not directly accessible from the failure path. Users can view full error details in Azure Data Factory Monitor using the `pipelineRunId`.
+
+#### B. Add Web Activity for Success Alerts
+
+1. **Add another Web Activity**:
+   - Drag **Web** activity onto canvas
+   - **Name**: `pipeline_run_success_alert`
+
+2. **Position the activity**:
+   - Drag the **green success arrow** from ForEach to this Web activity
+
+**Configure Web Activity:**
+
+1. **Click on pipeline_run_success_alert** activity
+2. **Settings** tab:
+
+   - **URL**: Same HTTP POST URL from Logic App
+   - **Method**: `POST`
+   - **Headers**: Same as failure alert
+
+   - **Body**: Click **Add dynamic content** and enter:
+
+```json
+{
+    "pipelineName": "@{pipeline().Pipeline}",
+    "pipelineRunId": "@{pipeline().RunId}",
+    "status": "Success",
+    "errorMessage": "",
+    "timestamp": "@{utcNow()}",
+    "dataFactory": "@{pipeline().DataFactory}"
+}
+```
+
+1. **Save and Publish** the pipeline
+
+---
+
+### Step 12.8: Updated Pipeline Architecture
+
+Your pipeline now has monitoring:
+
+```mermaid
+graph TB
+    Start[Pipeline Starts] --> ForEach[ForEach: loop_through_tables]
+    
+    ForEach -->|All Tables<br/>Processed| Success{Success?}
+    
+    Success -->|YES| WebSuccess[Web Activity:<br/>pipeline_run_success_alert]
+    Success -->|NO| WebFail[Web Activity:<br/>pipeline_run_failed_alert]
+    
+    WebSuccess --> LogicApp[Logic App:<br/>logic_app_4_data_factory_alerts]
+    WebFail --> LogicApp
+    
+    LogicApp --> Condition{Status<br/>== Failed?}
+    
+    Condition -->|TRUE| EmailFail[Send Email:<br/>Failure Notification]
+    Condition -->|FALSE| EmailSuccess[Send Email:<br/>Success Notification]
+    
+    EmailFail --> Complete[Notification Sent]
+    EmailSuccess --> Complete
+    
+    style Start fill:#006ba8
+    style ForEach fill:#b45902
+    style Success fill:#8b7500
+    style WebSuccess fill:#195a1e
+    style WebFail fill:#8b0000
+    style LogicApp fill:#4b0082
+    style Condition fill:#b45902
+    style EmailFail fill:#8b0000
+    style EmailSuccess fill:#195a1e
+    style Complete fill:#006ba8
+```
+
+---
+
+### Step 12.9: Test the Monitoring Setup
+
+#### Test Failure Scenario
+
+1. **Modify a table parameter** to cause a failure:
+   - In `loop_input` parameter, change `dim_user` to `dim_user_INVALID`
+   - This will cause a "table not found" error
+
+2. **Run the pipeline**:
+   - Click **Debug**
+   - Wait for ForEach to fail
+
+3. **Verify**:
+   - Web Activity `pipeline_run_failed_alert` should execute
+   - Check your email for failure notification
+   - Verify all expected details are present
+
+#### Test Success Scenario
+
+1. **Fix the table parameter** back to correct value
+2. **Run the pipeline** again
+3. **Verify**:
+   - Web Activity `pipeline_run_success_alert` should execute
+   - Check your email for success notification
+
+---
+
+### Step 12.10: Monitor Logic App Execution
+
+**View Logic App Run History:**
+
+1. Go to Azure Portal → Logic App
+2. Click **Overview** → **Runs history**
+3. You'll see all HTTP requests received from Data Factory
+4. Click on any run to see:
+   - Input received (JSON payload)
+   - Actions executed (condition evaluation, email sent)
+   - Outputs from each step
+   - Execution duration
+
+**Common Issues:**
+
+| Issue | Cause | Fix |
+| ------- | ------- | ----- |
+| No email received | Email connector not authenticated | Re-authenticate Office 365 connector |
+| HTTP 401 error | Logic App URL expired | Regenerate URL and update Data Factory |
+| Missing fields in email | Dynamic content not resolved | Check JSON schema matches payload |
+| Email goes to spam | Sender not trusted | Add Logic App to safe senders |
+
+---
+
+### Step 12.11: Production Best Practices
+
+#### 1. Secure the HTTP Endpoint
+
+The Logic App URL is sensitive - anyone with it can trigger your workflow:
+
+```bash
+# Regenerate Logic App URL if compromised
+az logic workflow show \
+    --resource-group "$AZURE_RESOURCE_GROUP" \
+    --name "logic_app_4_data_factory_alerts" \
+    --query "accessEndpoint" -o tsv
+```
+
+Consider:
+
+- Store URL in Azure Key Vault
+- Use Managed Identity authentication instead of URL
+- Implement IP restrictions on Logic App
+
+#### 2. Add Multiple Recipients
+
+Instead of single email, use distribution lists:
+
+```email_config
+To: data-engineering-team@company.com
+CC: manager@company.com
+```
+
+#### 3. Integrate with Other Systems
+
+Add actions to notify:
+
+- **Microsoft Teams**: Post to channel
+- **Slack**: Send message to #alerts channel
+- **PagerDuty**: Create incident for on-call engineer
+- **ServiceNow**: Create ticket automatically
+
+#### 4. Customize Alert Severity
+
+Add more conditions based on error type:
+
+```logic_app_conditions
+If error contains "timeout" → P2 Alert
+If error contains "authorization" → P1 Alert (security)
+If error is dim_date table → P3 Alert (low priority)
+```
+
+#### 5. Throttle Notifications
+
+Prevent email spam during repeated failures:
+
+- Add delay action (wait 5 minutes before sending)
+- Check if alert already sent in last X minutes
+- Batch multiple failures into single summary email
+
+---
+
+### Step 12.12: Advanced: Retry Failed Pipelines
+
+**Extend Logic App to automatically retry failed pipelines:**
+
+1. **Add HTTP action** to Logic App (after failure email)
+2. **Configure**:
+   - **Method**: POST
+   - **URI**: Data Factory REST API endpoint
+   - **Body**: Trigger pipeline re-run with original parameters
+
+```http_action
+POST https://management.azure.com/subscriptions/{subscription}/resourceGroups/{rg}/providers/Microsoft.DataFactory/factories/{adf}/pipelines/{pipeline}/createRun?api-version=2018-06-01
+```
+
+This creates a self-healing pipeline that retries transient failures automatically.
+
+---
+
+### Step 12.13: Cost Optimization
+
+**Logic App Pricing:**
+
+- **Consumption Plan**: Pay per execution
+  - ~$0.000025 per action execution
+  - Example: 100 pipeline runs/day × 2 emails = 200 actions = $0.005/day = $1.50/month
+
+**Optimization Tips:**
+
+1. **Combine notifications**: Send daily summary instead of per-run alerts for success
+2. **Filter noise**: Only alert on critical failures, not warnings
+3. **Use cheaper alternatives**: Azure Monitor alerts (if only email needed)
+
+---
+
+## Step 13: Troubleshooting Pipeline Errors
 
 ### Error: "Invalid column name 'updated_at'" or similar column errors
 

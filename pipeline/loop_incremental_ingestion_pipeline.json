@@ -339,7 +339,7 @@
 					"method": "POST",
 					"url": "https://prod-09.northcentralus.logic.azure.com:443/workflows/7418b9f3f4094022831141699a8a3b26/triggers/When_an_HTTP_request_is_received/paths/invoke?api-version=2016-10-01&sp=%2Ftriggers%2FWhen_an_HTTP_request_is_received%2Frun&sv=1.0&sig=7ssLpOIeT1ScAOHblodrAEftXD7fNqT5DJzgK21hoyc",
 					"body": {
-						"value": "{\n    \"pipelineName\": \"pipeline().Pipeline\",\n    \"pipelineRunId\": \"pipeline().RunId\",\n    \"status\": \"Failed\"\n}",
+						"value": "{\n    \"pipelineName\": \"@{pipeline().Pipeline}\",\n    \"pipelineRunId\": \"@{pipeline().RunId}\",\n    \"status\": \"Failed\",\n    \"timestamp\": \"@{utcNow()}\",\n    \"dataFactory\": \"@{pipeline().DataFactory}\"\n}",
 						"type": "Expression"
 					}
 				}
@@ -367,7 +367,7 @@
 					"method": "POST",
 					"url": "https://prod-09.northcentralus.logic.azure.com:443/workflows/7418b9f3f4094022831141699a8a3b26/triggers/When_an_HTTP_request_is_received/paths/invoke?api-version=2016-10-01&sp=%2Ftriggers%2FWhen_an_HTTP_request_is_received%2Frun&sv=1.0&sig=7ssLpOIeT1ScAOHblodrAEftXD7fNqT5DJzgK21hoyc",
 					"body": {
-						"value": "{\n    \"pipelineName\": \"pipeline().Pipeline\",\n    \"pipelineRunId\": \"pipeline().RunId\",\n    \"status\": \"Success\"\n}",
+						"value": "{\n    \"pipelineName\": \"@{pipeline().Pipeline}\",\n    \"pipelineRunId\": \"@{pipeline().RunId}\",\n    \"status\": \"Success\",\n    \"timestamp\": \"@{utcNow()}\",\n    \"dataFactory\": \"@{pipeline().DataFactory}\"\n}",
 						"type": "Expression"
 					}
 				}
