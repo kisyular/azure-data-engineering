@@ -2,6 +2,7 @@
 
 > Step-by-step guide to set up Azure resources for a data engineering project.
 
+> ![Pipeline Architecture Diagram](images/azure_data_engineering_architecture.png)
 ---
 
 ## Prerequisites
@@ -3028,6 +3029,15 @@ This creates a self-healing pipeline that retries transient failures automatical
 3. **Use cheaper alternatives**: Azure Monitor alerts (if only email needed)
 
 ---
+
+## Step 13: Publish your pipelines
+
+1. In Data Factory Studio, switch from `development` branch to `main` branch (top left)
+2. Click **Publish All** (top toolbar)
+3. Confirm publish
+4. Wait for deployment to complete
+
+In GitHub, a new branch called `adf_publish` will be created with ARM templates for your Data Factory.
 
 ## Step 13: Troubleshooting Pipeline Errors
 
