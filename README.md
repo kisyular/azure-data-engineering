@@ -1,7 +1,6 @@
 # Azure Data Engineering Project - Setup Guide
 
 > Step-by-step guide to set up Azure resources for a data engineering project.
-
 > ![Pipeline Architecture Diagram](images/azure_data_engineering_architecture.png)
 ---
 
@@ -3039,7 +3038,7 @@ This creates a self-healing pipeline that retries transient failures automatical
 
 In GitHub, a new branch called `adf_publish` will be created with ARM templates for your Data Factory.
 
-## Step 13: Troubleshooting Pipeline Errors
+## Step 14: Troubleshooting Pipeline Errors
 
 ### Error: "Invalid column name 'updated_at'" or similar column errors
 
