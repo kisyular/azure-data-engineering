@@ -1,0 +1,33 @@
+{
+	"$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentParameters.json#",
+	"contentVersion": "1.0.0.0",
+	"parameters": {
+		"factoryName": {
+			"value": "adf-4-data-engineering-rk"
+		},
+		"azure_data_lake_4_data_engineering_accountKey": {
+			"value": ""
+		},
+		"azure_db_4_data_engineering_password": {
+			"value": ""
+		},
+		"azure_data_lake_4_data_engineering_properties_typeProperties_url": {
+			"value": "https://sa4dataengineering4rk.dfs.core.windows.net/"
+		},
+		"azure_db_4_data_engineering_properties_typeProperties_server": {
+			"value": "sql-server-4-data-engineering.database.windows.net"
+		},
+		"azure_db_4_data_engineering_properties_typeProperties_database": {
+			"value": "sqldb-4-data-engineering"
+		},
+		"azure_db_4_data_engineering_properties_typeProperties_userName": {
+			"value": "real_mfalme"
+		},
+		"containerUri": {
+			"value": ""
+		},
+		"containerSasToken": {
+			"value": ""
+		}
+	}
+}
